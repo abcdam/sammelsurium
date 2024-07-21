@@ -1,8 +1,15 @@
 #!/bin/bash
-path="/etc/apt/keyrings/cuda-archive-keyring.gpg";
-wget https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-archive-keyring.gpg
+
+# https://docs.nvidia.com/cuda/cuda-installation-guide-linux/
+#
+
+apt install -y gcc  \ 
+    build-essential \
+    linux-headers-$(uname -r)
+
 wget https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb
-mv cuda-archive-keyring.gpg $path
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
 
+apt update && apt install -y \
+    cuda
 
-echo "deb [signed-by=${path}] https://developer.download.nvidia.com/compute/cuda/repos/debian11/x86_64/ /" | sudo tee /etc/apt/sources.list.d/cuda-debian11-x86_64.list

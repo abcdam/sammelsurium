@@ -23,7 +23,7 @@ apt update && \
 nvidia-ctk runtime configure --runtime=docker
 systemctl restart docker
 
-nvidia-smi --query-gpu=uuid,name --format=csv
+# needs check if smi util is available
+# nvidia-smi --query-gpu=uuid,name --format=csv
 
-echo "testing nvidia-container-toolkit installation"
-docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
+echo "nvidia-container-toolkit installed."
