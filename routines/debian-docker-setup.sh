@@ -9,7 +9,7 @@ apt-get remove docker docker-engine docker.io containerd runc
 
 echo "setup docker repo"
 
-apt-get install \
+apt-get install -y \
     ca-certificates \
     curl \
     gnupg \
