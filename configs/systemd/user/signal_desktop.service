@@ -1,0 +1,11 @@
+# /home/$(whoami)/.config/systemd/user/signal_desktop.service
+[Unit]
+Description=Signal messaging client
+
+[Service]
+ExecStart=/usr/bin/signal-desktop
+Restart=no
+
+[Install]
+WantedBy=default.target
+
