@@ -41,8 +41,11 @@ for path in $TO_CHECK; do
         && exit 1
     
     awk -F ';' '
+        
+        /^[[:space:]]*<!-- .+ -->/ { next } # skip comments
+
         NF != 4 {
-            print "Validation error: Entry must have 4 substrings delimited by a semicolon  - \"" $0 "\""
+            print "Validation error: Malformed entry detected. Non-comment entry must consist of 4 substrings delimited by a semicolon  - \"" $0 "\""
             exit 1
         }
         $1 !~ /^[a-zA-Z0-9_]+$/ {
@@ -54,7 +57,7 @@ for path in $TO_CHECK; do
             exit 1
         }
         $4 !~ /^(https):\/\// {
-            print "Validation error: last substring must be a URL - \"" $4 "\""
+            print "Validation error: last substring cannot contain leading whitespaces and must be a URL - \"" $4 "\""
             exit 1
         }
         {
@@ -66,7 +69,7 @@ for path in $TO_CHECK; do
             }
         }' "$path"
 
-    if [ $? -ne 0 ]; then printf "File '%s' validation failed. Aborted\n" "$path" 1>2 && exit 1
+    if [ $? -ne 0 ]; then printf "File '%s' validation failed. Aborted\n" "$path" 1>&2 && exit 1
     elif [ $VERBOSE ]; then printf "is ok: %s\n"  "$path"
     fi
 done
