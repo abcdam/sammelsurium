@@ -10,6 +10,7 @@ org;communication patterns;approaches to effective org comm.;https://communicati
 ux;product design;how to build intuitive interfaces;https://lawsofux.com/book
 org;complexity management;a unified theory for org. performance;https://www.goodreads.com/book/show/125164532-wiring-the-winning-organization
 misc;meta rationality;working with limits of rational systems;https://metarationality.com/introduction
-cry;FHE;discussion about current state of fhe techniques;https://link.springer.com/book/10.1007/978-3-031-43214-9
+cry;fhe 2023;discussion about current state of fhe techniques;https://link.springer.com/book/10.1007/978-3-031-43214-9
 cry;fhe security;example of a side channel attack;https://link.springer.com/article/10.1007/s13389-023-00340-2
 arch;fhe systems;analyzing the ckks fhe scheme and designing a computing system for it -> lessons for tFHE;https://link.springer.com/book/10.1007/978-3-031-31754-5
+cry;zk-snark;implementation guide for a prover and solver;https://github.com/RareSkills/zk-book/tree/prod
