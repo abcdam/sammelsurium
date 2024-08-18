@@ -1,4 +1,4 @@
-<!-- ux,(dev)ops,org(anization),arch(itecture),cry(pto),misc(ellaneous) -->
+<!-- ux,biz,(dev)ops,org(anization),arch(itecture),cry(pto),misc(ellaneous) -->
 ux;alignment diagram;tool to help understand customer exp;https://www.oreilly.com/library/view/mapping-experiences-2nd/9781492076629
 ops;google sre;books about how devops is done at google;https://sre.google/books
 org;team topology;designing team compositions;https://teamtopologies.com/book
@@ -13,4 +13,5 @@ misc;meta rationality;working with limits of rational systems;https://metaration
 cry;fhe 2023;discussion about current state of fhe techniques;https://link.springer.com/book/10.1007/978-3-031-43214-9
 cry;fhe security;example of a side channel attack;https://link.springer.com/article/10.1007/s13389-023-00340-2
 arch;fhe systems;analyzing the ckks fhe scheme and designing a computing system for it -> lessons for tFHE;https://link.springer.com/book/10.1007/978-3-031-31754-5
-cry;zk-snark;implementation guide for a prover and solver;https://github.com/RareSkills/zk-book/tree/prod
+cry;zk-snark;implementation guide for a prover and solver/verifier;https://github.com/RareSkills/zk-book/tree/prod
+biz;market competition;exploiting the weakest link in customer's value chain to gain market share through a dominant business model;https://www.goodreads.com/book/show/42934086-unlocking-the-customer-value-chain
