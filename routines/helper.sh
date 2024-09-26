@@ -19,7 +19,7 @@ verify_root() {
 }
 
 throw() {
-    printf "%s\n" "$1" >&2 
+    printf "%s\n" "$(colorify "$1" r)" >&2 
     exit "${2-1}" ## Return code at $2, or 1 by default
 }
 
