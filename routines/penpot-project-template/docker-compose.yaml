@@ -1,0 +1,146 @@
+---
+version: "3.8"
+
+networks:
+  penpot:
+
+volumes:
+  penpot_postgres_v15:
+  penpot_assets:
+
+services:
+#################
+########
+######## FRONTEND
+########
+#################
+  penpot-frontend:
+    image: "${FRONTEND_IMG}:${PENPOT_VERSION}"
+    restart: always
+    ports:
+      - 9001:80
+    volumes:
+      - penpot_assets:${ASSETS_DIR}
+    depends_on:
+      - penpot-backend
+      - penpot-exporter
+    networks:
+      - penpot
+    labels:
+      - "traefik.enable=true"
+    environment:
+      - PENPOT_FLAGS="$PENPOT_FLAGS disable-registration" 
+#################
+########
+######## BACKEND
+########
+#################
+  penpot-backend:
+    image: "${BACKEND_IMG}:${PENPOT_VERSION}"
+    restart: always
+    volumes:
+      - penpot_assets:${ASSETS_DIR}
+    depends_on:
+      - penpot-postgres
+      - penpot-redis
+    networks:
+      - penpot
+    environment:
+      - PENPOT_FLAGS="$PENPOT_FLAGS disable-registration disable-email-verification enable-smtp enable-prepl-server"
+      - PENPOT_PUBLIC_URI=http://localhost:9001
+
+      ## Database connection parameters. Don't touch them unless you are using custom
+      ## postgresql connection parameters.
+      - PENPOT_DATABASE_URI=postgresql://penpot-postgres/penpot
+      - PENPOT_DATABASE_USERNAME=${POSTGRES_USER}
+      - PENPOT_DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+
+      ## Redis is used for the websockets notifications. Don't touch unless the redis
+      ## container has different parameters or different name.
+      - PENPOT_REDIS_URI=redis://penpot-redis/0
+
+      ## Default configuration for assets storage: using filesystem based with all files
+      ## stored in a docker volume.
+      - PENPOT_ASSETS_STORAGE_BACKEND=assets-fs
+      - PENPOT_STORAGE_ASSETS_FS_DIRECTORY=${ASSETS_DIR}
+
+      ## Telemetry. When enabled, a periodical process will send anonymous data about this
+      ## instance.
+      - PENPOT_TELEMETRY_ENABLED=false
+
+      ## Example SMTP/Email configuration. By default, emails are sent to the mailcatch
+      ## service, but for production usage is recommended to setup a real SMTP
+      ## provider. Emails are used to confirm user registrations & invitations. Look below
+      ## how mailcatch service is configured.
+      - PENPOT_SMTP_DEFAULT_FROM=no-reply@example.com
+      - PENPOT_SMTP_DEFAULT_REPLY_TO=no-reply@example.com
+      - PENPOT_SMTP_HOST=penpot-mailcatch
+      - PENPOT_SMTP_PORT=1025
+      - PENPOT_SMTP_USERNAME=
+      - PENPOT_SMTP_PASSWORD=
+      - PENPOT_SMTP_TLS=false
+      - PENPOT_SMTP_SSL=false
+#################
+########
+######## EXPORTER
+########
+#################
+  penpot-exporter:
+    image: "penpotapp/exporter:latest"
+    restart: always
+    networks:
+      - penpot
+    environment:
+      # Don't touch it; this uses internal docker network to
+      # communicate with the frontend.
+      - PENPOT_PUBLIC_URI=http://penpot-frontend
+
+      ## Redis is used for the websockets notifications.
+      - PENPOT_REDIS_URI=redis://penpot-redis/0
+#################
+########
+######## USER DB
+########
+#################
+  penpot-postgres:
+    image: "${POSTGRES_IMG}"
+    restart: always
+    stop_signal: SIGINT
+    volumes:
+      - penpot_postgres_v15:/var/lib/postgresql/data
+    networks:
+      - penpot
+    environment:
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+#################
+########
+######## NOTIFICATION BROKER DB
+########
+#################
+  penpot-redis:
+    image: redis:7
+    restart: always
+    networks:
+      - penpot
+
+#################
+########
+######## TEMP MAIL SERVICE
+########
+#################
+  ## A mailcatch service, used as temporal SMTP server. You can access via HTTP to the
+  ## port 1080 for read all emails the penpot platform has sent. Should be only used as a
+  ## temporal solution meanwhile you don't have a real SMTP provider configured.
+  penpot-mailcatch:
+    image: sj26/mailcatcher:latest
+    restart: always
+    expose:
+      - '1025'
+    ports:
+      - "1080:1080"
+    networks:
+      - penpot
+
