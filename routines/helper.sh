@@ -10,6 +10,10 @@ _print() {
     printf '%s' "$1" 
 }
 
+get_dir_of() {
+    dirname "$(realpath "$1")"
+}
+
 is_root() {
     [ "$(id --user)" -eq 0 ]
 }

@@ -1,26 +1,16 @@
- source '/usr/lib/helper-func.sh'
- set_exit_code() {
-     if [[ $1 -eq 0 ]]; then
-         colorify '>>' gray
-     else
-         colorify '=>' lr b
-     fi
- }
-
+# source '/usr/lib/helper-func.sh'
 get_fancy_prompt() {
-    LAST_CMD_INDICATOR=" $(set_exit_code $?)"
- 
+    PROMPT_SIGN=$([ $? -eq 0 ] && colorify '>>' gray || colorify '=>' lr b)
     branch_label=$(__git_ps1 '(%s)')    && \
         [ ! -z "$branch_label" ]        && \
-        if ! (git status 2> /dev/null | tail -n1 | grep -q "nothing to commit,"); then
-            status_indicator='u';
+        if ! (git status 2> /dev/null \
+            | tail -n1 | grep -q "nothing to commit,"); then
+            uncommited_state='u'; # set colorify opt to underline
         fi                              && \
-        GIT_BRANCH_INDICATOR=" $(colorify $branch_label lyellow $status_indicator)"
+        GIT_BRANCH="$(colorify $branch_label lyellow $uncommited_state)"
  
-    OPERATOR="$(colorify $(whoami)@$(hostname) lblue)"
+    OP="$(colorify $(whoami)@$(hostname) lblue)"
     CLOCK="$(colorify [$(date +%H:%M:%S)] gray)"
-    WORKING_DIR=" $(colorify $(pwd) lg)"
-    printf "${OPERATOR}${WORKING_DIR}${GIT_BRANCH_INDICATOR}\n${CLOCK}${LAST_CMD_INDICATOR} "
+    ABS_PWD="$(colorify $(pwd) lg)"
+    printf "${OP} ${ABS_PWD} ${GIT_BRANCH}\n${CLOCK} ${PROMPT_SIGN} "
 }
-
-PS1='$(get_fancy_prompt)'
