@@ -9,13 +9,12 @@ import gmpy2 as gp
 
 # nearly everything done in one matrix object
 def egcd_matrix(a,b):
-    op_matrix = np.array([[a,b],[1,0],[0,1]],dtype=int)
-    while op_matrix[0,1] != 0:
-        q = op_matrix[0,0] // op_matrix[0,1]
-        op_matrix = op_matrix[:,[1,0]]
-        op_matrix[:,1] -= q*op_matrix[:,0]
+    op_matrix = np.array([[a,1,0],[b,0,1]],dtype=int)
+    while op_matrix[1,0] != 0:
+        q = op_matrix[0,0] // op_matrix[1,0]
+        op_matrix[0], op_matrix[1] = op_matrix[1], op_matrix[0] - q * op_matrix[1] # ~50% faster
     if op_matrix[0,0] < 0: op_matrix *= -1
-    return tuple(op_matrix[:,0])
+    return tuple(op_matrix[0])
 
 # using numpy arrays instead of matrix
 def egcd_copy(a,b):

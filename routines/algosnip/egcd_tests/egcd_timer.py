@@ -9,7 +9,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 def test_impl(impl,runs):
     start = process_time()
     for i in range(runs):
-        globals()["egcd_" + impl](a,b)
+        globals()["egcd_" + impl](a,b) # generate & call function id from keys in results dict
     return process_time()-start
 
 def run_tests_for_impl(impl):
@@ -30,7 +30,7 @@ results = {
     'var':{},
     'galois':{},
     'libnum':{},
-    'gmpy2':{}
+    'gmpy2':{},
 }
 
 ## TEST SETUP
@@ -38,13 +38,13 @@ a,b = 2**63-1,2**62+3
 expected = egcd_var(a,b)
 assert all(expected == globals()['egcd_'+impl](a,b) for impl in results.keys()),'gcd must return same value for any implementation'
 
-runs=int(2**23)
+runs=int(2**24)
 rounds=3
 c=16
 parallel_rounds=rounds
-parallel_tests=5
+parallel_tests=4
 
-assert parallel_rounds*parallel_tests < c, 'cpu load sanity check failed'
+assert parallel_rounds*parallel_tests <= c, 'cpu load sanity check failed'
 
 print(f"egcd(a,b)       : {a},{b}\n"
     f"rounds          : {rounds:<10}\n"
