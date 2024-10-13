@@ -27,7 +27,7 @@ verify_args(){
     [ -z "${c_flag}${r_flag}" ] && throw "err: no action indicating flag set."
 }
 
-while getopts ":rc:" opt; do
+while getopts "rc:" opt; do
     case ${opt} in
         c)
             custom_cmd="$OPTARG"
@@ -44,7 +44,7 @@ while getopts ":rc:" opt; do
 done
 shift $((OPTIND -1))
 
-path=$(realpath "$1") 2>/dev/null || synopsis && throw "err: missing path argument."
+path=$(realpath "$1" 2>/dev/null) || throw "err: missing path argument."
 verify_args "$path" "$custom_cmd" "$compile_run" 
 
 SOURCE_ID=$(basename $path)

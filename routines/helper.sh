@@ -10,6 +10,10 @@ _print() {
     printf '%s' "$1" 
 }
 
+print_ok() {
+    printf "%s\n" "$(colorify "$1" lg)"
+}
+
 get_dir_of() {
     dirname "$(realpath "$1")"
 }
