@@ -1,1 +1,9 @@
 export HGIT="$HOME/dev/git"
+# overwrite system clipboard with primary buffer
+zz() {
+    echo -ne "\033[K\033[F\033[K\033[F" && wl-paste -p | wl-copy -n
+}
+
+g2git() {
+    [ -d "$HGIT" ] && cd "$HGIT" || throw "err: cd to '$gdir' failed.(code: $?)"
+}
