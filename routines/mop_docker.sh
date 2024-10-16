@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /usr/lib/helper-func.sh
+
 show_help() {
     echo "Usage: $0 [-y] [-c] [-i] [-v] [-n] [-b]"
     echo ""
@@ -20,25 +22,28 @@ remove_volumes=false
 remove_networks=false
 remove_cache=false
 
-while getopts "ycivnbh" opt; do
+while getopts "ycivnbhs:" opt; do
     case ${opt} in
-        y )
+        y|headless )
             headless=true
             ;;
-        c )
+        c|rm-containers )
             remove_containers=true
             ;;
-        i )
+        i|rm-images )
             remove_images=true
             ;;
-        v )
+        v|rm-volumes )
             remove_volumes=true
             ;;
-        n )
+        n|rm-networks )
             remove_networks=true
             ;;
-        b )
+        p|prune-cache )
             remove_cache=true
+            ;;
+        s|summarize )
+            summary_resources="$OPTARG" && echo "$summary_resources" | grep -qE "^(i|d|c){1,3}$" || throw "err: only valid arguments to summarize are i, d, c."
             ;;
         h )
             show_help
@@ -50,6 +55,21 @@ while getopts "ycivnbh" opt; do
             ;;
     esac
 done
+
+if [ -n "$summary_resources" ]; then
+    limit=$(printf "%s" "$summary_resources" | wc -c)
+    i=1
+    while true; do
+        opt=$(printf "%s" "$summary_resources" | cut -c $i)
+        case ${opt} in
+            i) [ -z "$img" ]    && img=1    && docker images --format "{{.Repository}}:{{.Tag}} {{.Size}}";;
+            d) [ -z "$disk" ]   && disk=1   && docker system df;;
+            c) [ -z "$contrs" ] && contrs=1 && docker ps -a --size;;
+        esac
+        i=$((i+1)) && [ $i -le $limit ] || break
+    done
+    exit 0
+fi
 
 # remove everything if nothing selected
 if ! $remove_containers && ! $remove_images && ! $remove_volumes && ! $remove_networks && ! $remove_cache; then

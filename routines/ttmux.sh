@@ -36,7 +36,7 @@ vExec_template() {
   # CMD_n
   #
     _setup_sesh 'exec'
-    [ -z $1 ] && throw "error: no command passed."
+    [ -z "$1" ] && throw "error: no command passed."
     tmux new-window -t "$SESH_ID" -n "$WIN_ID" "$1"
     shift
     for cmd in "$@"; do

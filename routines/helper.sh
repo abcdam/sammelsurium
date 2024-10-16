@@ -14,6 +14,10 @@ print_ok() {
     printf "%s\n" "$(colorify "$1" lg)"
 }
 
+warn_ok() {
+    printf "%s\n" "$(colorify "$1" ly)"
+}
+
 get_dir_of() {
     dirname "$(realpath "$1")"
 }

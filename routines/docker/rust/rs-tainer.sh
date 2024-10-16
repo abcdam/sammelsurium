@@ -23,7 +23,7 @@ verify_args(){
     r_flag="$3"
 
     [ -r "$path" ] || throw "err: either dir/file does not exist or read permission not set."
-    [ -n "$c_flag" ] && [ -n "$r_flag" ] throw "err: mutex flags -c and -r detected."
+    [ -n "$c_flag" ] && [ -n "$r_flag" ] && throw "err: mutex flags -c and -r detected."
     [ -z "${c_flag}${r_flag}" ] && throw "err: no action indicating flag set."
 }
 
@@ -52,11 +52,12 @@ SOURCE_DIR=$(dirname $path)
 
 if [ -n "$compile_run" ]; then
     [ -f "$path" ] || throw "err: target ('$SOURCE_ID') to compile and run not a regular file."
-    EXEC="rustc $SOURCE_ID" # directly compile and run source
+    EXEC="/app/rustc-runner.sh $SOURCE_ID" # directly compile and run source
 else
     [ -d "$path" ] && SOURCE_DIR="$path"
     EXEC="cargo $custom_cmd" # custom cargo util commands to build, check source, etc.
 fi
 
 IMG=rust-build
-docker run --rm -v "$SOURCE_DIR:/src" -w /src $IMG "$EXEC"
+echo "$EXEC $@"
+docker run -it -u $(id -u):$(id -g) --rm -v "$SOURCE_DIR:/src" -w /src --name rs-runner $IMG $EXEC
