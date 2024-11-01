@@ -42,7 +42,7 @@ runs=int(2**24)
 rounds=3
 c=16
 parallel_rounds=rounds
-parallel_tests=4
+parallel_tests=5
 
 assert parallel_rounds*parallel_tests <= c, 'cpu load sanity check failed'
 

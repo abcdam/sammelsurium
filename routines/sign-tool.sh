@@ -8,21 +8,17 @@
 synopsis(){
     excode=$1
     prettySynops="$(get_dir_of $0)/pretty-synopsis.pl"
-    SYNOPSIS=$(
-        echo "$(basename $0);;"\
-                "[-dh];;"\
-                "[--identity <key_uid>];;"\
-                "{--sign <target> <o_dir> | --verify <target> <signature>};;"\
-                "sign-tool: A utility for signing and verifying files using GPG"
-    )
-    DESCRIPTION=$(
-        echo "ARGUMENTS;;"\
-            "-i;--identity <key_id>;Specify the key ID to use to sign the target;;"\
-            "-s;--sign <target> <o_dir>;Sign the target file and write the signature to the output directory;;"\
-            "-v;--verify <target> <signature>;Verify the signature of the file at target path;;"\
-            "-d;--debug;Enable debug mode;;"\
-            "-h;--help;Show this help text and exit"
-    )
+    SYNOPSIS="$(basename $0);;\
+                [-dh];;\
+                [--identity <key_uid>];;\
+                {--sign <target> <o_dir> | --verify <target> <signature>};;\
+                sign-tool: A utility for signing and verifying files using GPG"
+    DESCRIPTION="ARGUMENTS;;\
+            -i;--identity <key_id>;Specify the key ID to use to sign the target;;\
+            -s;--sign <target> <o_dir>;Sign the target file and write the signature to the output directory;;\
+            -v;--verify <target> <signature>;Verify the signature of the file at target path;;\
+            -d;--debug;Enable debug mode;;\
+            -h;--help;Show this help text and exit"
     $prettySynops --synopsis="$SYNOPSIS" --description="$DESCRIPTION"
     exit $excode
 }

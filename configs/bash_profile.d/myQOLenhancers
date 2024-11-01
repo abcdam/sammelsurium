@@ -5,5 +5,5 @@ zz() {
 }
 
 g2git() {
-    [ -d "$HGIT" ] && cd "$HGIT" || throw "err: cd to '$gdir' failed.(code: $?)"
+    [ -d "$HGIT" ] && cd "$HGIT" || throw "err: cd to '$HGIT' failed.(code: $?)"
 }
