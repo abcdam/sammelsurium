@@ -1,21 +1,14 @@
-FROM python:bookworm
+FROM python:3.12.7-slim-bookworm
 
-# https://docs.sympy.org/latest/reference/index.html
-# https://docs.scipy.org/doc/scipy/reference/index.html
-RUN python -m pip install sympy scipy
+USER root
 
-# https://github.com/piccolomo/plotext/
-RUN python -m pip install plotext
+ENV DEBIAN_FRONTEND=noninteractive
 
-# https://galois.readthedocs.io/en/v0.4.1/api/
-# https://github.com/hellman/libnum/
-# https://gmpy2.readthedocs.io/en/latest/
-# https://github.com/ethereum/py_ecc
-RUN python -m pip install galois libnum gmpy2 py_ecc
+RUN groupadd -g 1000 py-tainer && \
+    useradd -u 1000 -g py-tainer -m -s /bin/bash py-tainer
 
+COPY ./requirements.txt /tmp/requirements.txt
 
+RUN pip install -r /tmp/requirements.txt
 
-
-
-
-
+USER py-tainer

@@ -1,0 +1,16 @@
+# https://docs.sympy.org/latest/reference/index.html
+sympy
+# https://docs.scipy.org/doc/scipy/reference/index.html
+scipy
+# https://github.com/piccolomo/plotext/
+plotext
+# https://galois.readthedocs.io/en/v0.4.1/api/
+galois
+# https://github.com/hellman/libnum/
+libnum
+# https://gmpy2.readthedocs.io/en/latest/
+gmpy2
+# https://github.com/ethereum/py_ecc
+py_ecc
+# https://github.com/jsvine/pdfplumber?tab=readme-ov-file#python-library
+pdfplumber
