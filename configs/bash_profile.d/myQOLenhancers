@@ -7,3 +7,11 @@ zz() {
 g2git() {
     [ -d "$HGIT" ] && cd "$HGIT" || throw "err: cd to '$HGIT' failed.(code: $?)"
 }
+
+alias npmd="npm run dev"
+alias npmc="npm run check"
+alias npmb="npm run build"
+
+lsdu() {
+    du -ah -d 1 | sort -h
+}
