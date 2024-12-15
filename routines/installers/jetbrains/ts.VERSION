@@ -1,0 +1,5 @@
+TOOL_ID=webstorm
+ARCHIVE_LABEL=Webstorm
+BIN=webstorm
+VERSION=2024.3.1
+SHORT_NAME=wbs

@@ -1,0 +1,5 @@
+TOOL_ID=python
+ARCHIVE_LABEL=pycharm
+BIN=pycharm
+VERSION=professional-2024.3.1
+SHORT_NAME=pyc

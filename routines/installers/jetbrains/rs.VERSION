@@ -1,0 +1,5 @@
+TOOL_ID=rustrover
+ARCHIVE_LABEL=RustRover
+BIN=rustrover
+VERSION=2024.3.1
+SHORT_NAME=rustr

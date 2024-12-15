@@ -1,4 +1,12 @@
+##
+## env vars
+##
 export HGIT="$HOME/dev/git"
+
+
+##
+## general
+##
 # overwrite system clipboard with primary buffer
 zz() {
     echo -ne "\033[K\033[F\033[K\033[F" && wl-paste -p | wl-copy -n
@@ -8,10 +16,50 @@ g2git() {
     [ -d "$HGIT" ] && cd "$HGIT" || throw "err: cd to '$HGIT' failed.(code: $?)"
 }
 
+lsdu() {
+    du -ah -d 1 | sort -h
+}
+
+
+##
+## npm
+##
 alias npmd="npm run dev"
 alias npmc="npm run check"
 alias npmb="npm run build"
+alias npmid="npm i --save-dev"
 
-lsdu() {
-    du -ah -d 1 | sort -h
+
+##
+## local kubectl
+##
+alias mkube="minikube"
+alias mkubectl="mkube kubectl --"
+mkctl() {
+    case "$1" in
+        gpa)
+            mkubectl get pods --all-namespaces
+            ;;
+        afd)
+            [ -z "$2" ] \
+                && echo "err: missing deployment file for dry-run." \
+                && return 1
+            mkubectl apply -f "$2" --dry-run=server
+            ;;
+        af)
+            [ -z "$2" ] \
+                && echo "err: missing deployment file" \
+                && return 1
+            mkubectl apply -f "$2"
+            ;;
+        df)
+            [ -z "$2" ] \
+                && echo "err: missing deployment file" \
+                && return 1
+            mkubectl delete -f "$2"
+            ;;
+        *)
+            mkubectl "$@"
+            ;;
+    esac
 }
