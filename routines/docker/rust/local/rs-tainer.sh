@@ -22,10 +22,10 @@ verify_args(){
     src_file="$3"
 
     if [ -n "$src_file" ]; then
-        [ -n "$cargo_args" ] && trow "err: rustc does not accept cargo args."
-        [ -n "$dir_src" ] && DIR_SRC="$(dirname "$src_file")"
+        [ -n "$cargo_args" ]    && trow "err: rustc does not accept cargo args."
+        [ -n "$dir_src" ]       && DIR_SRC="$(dirname "$src_file")"
     elif [ -n "$cargo_args" ]; then 
-        [ -z "$dir_src" ] && DIR_SRC="$(dirname "$(realpath .)")"
+        [ -z "$dir_src" ]       && DIR_SRC="$(dirname "$(realpath .)")"
     else throw "err: no cargo args detected."
     fi
 }
@@ -33,10 +33,14 @@ verify_args(){
 while getopts "r:d:h" opt; do
     case ${opt} in
         r)
-            COMPILE_RUN="$(realpath "$OPTARG")" && [ ! -f "$COMPILE_RUN" ] && throw "err: given filepath to source $COMPILE_RUN is not a regular file"
+            COMPILE_RUN="$(realpath "$OPTARG")" \
+                && [ ! -f "$COMPILE_RUN" ]      \
+                && throw "err: given filepath to source $COMPILE_RUN is not a regular file"
             ;;
         d)  
-            DIR_SRC="$(realpath "$OPTARG")" && [ ! -d "$DIR_SRC" ] && throw "err: given directory option $DIR_SRC does not exist"
+            DIR_SRC="$(realpath "$OPTARG")"     \
+                && [ ! -d "$DIR_SRC" ]          \
+                && throw "err: given directory option $DIR_SRC does not exist"
             ;;
         h|help) 
             synopsis && exit 0 
@@ -53,7 +57,8 @@ shift $((OPTIND -1))
 [ -n "$DIR_SRC" ] || DIR_SRC="$(pwd -P)"
 echo "Selected path: '$DIR_SRC'"
 CARGO_ARGS="$@"
-verify_args "$DIR_SRC" "$CARGO_ARGS" "$COMPILE_RUN" 
+verify_args "$DIR_SRC" "$CARGO_ARGS" "$COMPILE_RUN"
+
 SOURCE_ID=$(basename "$COMPILE_RUN")
 if [ -n "$SOURCE_ID" ]; then
     EXEC="/app/rustc-runner.sh $SOURCE_ID" # directly compile and run source

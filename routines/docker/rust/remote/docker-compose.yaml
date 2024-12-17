@@ -1,0 +1,15 @@
+# local setup to test dev server
+services:
+  rs-dev-server:
+    build:
+      context: ../../../
+      dockerfile: docker/rust/remote/Dockerfile
+    volumes:
+      - $RUST_PROJECT:/app/project
+      - $SSH_AUTH_SOCK:/ssh-agent
+      - $HOME/.ssh/authorized_keys:/home/dev-user/.ssh/authorized_keys:ro
+    ports:
+      - "5990:5990"
+      - "22:22"
+    environment:
+      - SSH_AUTH_SOCK=/ssh-agent
