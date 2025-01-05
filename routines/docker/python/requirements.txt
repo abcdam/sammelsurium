@@ -14,3 +14,5 @@ gmpy2
 py_ecc
 # https://github.com/jsvine/pdfplumber?tab=readme-ov-file#python-library
 pdfplumber
+# https://huggingface.co/docs/transformers/en/installation
+transformers

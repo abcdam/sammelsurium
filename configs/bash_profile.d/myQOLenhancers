@@ -20,6 +20,8 @@ lsdu() {
     du -ah -d 1 | sort -h
 }
 
+alias rsc='rsync --progress --outbuf=N --human-readable --archive --verbose --recursive --partial --mkpath --stats'
+alias lout='qdbus org.kde.ksmserver /KSMServer logout 0 0 0'
 
 ##
 ## npm

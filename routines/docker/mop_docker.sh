@@ -106,6 +106,18 @@ if $remove_networks; then
     echo "$LINE"
 fi
 
+[ -n "$remove_containers" ] && 
+    echo "# Container space to be freed: $(docker system df --format '{{json .}}' | jq -r 'select(.Type == "Containers") | .Size')"
+
+[ -n "$remove_images" ]     && 
+    echo "# image space to be freed: $(docker system df --format '{{json .}}' | jq -r 'select(.Type == "Images") | .Size')"
+
+[ -n "$remove_volumes" ]    && 
+    echo "# volume space to be freed: $(docker system df --format '{{json .}}' | jq -r 'select(.Type == "Local Volumes") | .Size')"
+
+[ -n "$remove_cache" ]      && 
+    echo "# Build cache space to be freed: $(docker system df --format '{{json .}}' | jq -r 'select(.Type == "Build Cache") | .Size')"
+
 
 
 # get user confirmation

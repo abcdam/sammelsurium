@@ -1,13 +1,13 @@
 # makefile to setup/remove jetbrain's IDEs
-ifneq ($(filter $(LANG),py ts rs),$(LANG))
-    $(error USAGE: 'make [clean] LANG={py,ts,rs}')
+ifneq ($(filter $(ID),py ts rs idea),$(ID))
+    $(error USAGE: 'make [clean] ID={py,ts,rs,idea}')
 endif
 
 USERLIB := $(shell realpath $(HOME)/lib)
 USERBIN := $(shell realpath $(HOME)/bin)
 DLDIR   := $(shell realpath $(HOME)/Downloads)
 
-VERSION_FILE    := $(LANG).VERSION
+VERSION_FILE    := $(ID).VERSION
 include $(VERSION_FILE)
 
 URL_BASE        := https://download.jetbrains.com

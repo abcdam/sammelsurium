@@ -1,5 +1,6 @@
 #!/bin/sh
 name=python
 tag=devenv
-
-docker build -t $name:$tag .
+context="$(dirname $(realpath $0))"
+echo "context: $context"
+docker build -t $name:$tag "$context"
