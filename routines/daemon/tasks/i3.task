@@ -1,0 +1,20 @@
+#!/bin/dash
+set -e
+. /usr/lib/helper-func.sh
+IDISP=2
+RES="$(xrandr | grep '\bconnected' -A 1 | tail -n 1 | awk '{print $1}')"
+TASK_ID="$(get_basename_no_pfix "$0")"
+LOGS="$HOME/.local/log/$TASK_ID"
+XEPH_LOG=$LOGS/Xephyr_$(get_timestamp).log
+i3_LOG=$LOGS/i3_$(get_timestamp).log
+CATCHUP_TIME=0.3
+
+run_i3() {
+    mkdir -p "$LOGS"
+    if ! which Xephyr || ! which i3; then throw "err: Xephyr or i3 bin not found"; fi
+    Xephyr ":$IDISP" -screen "$RES" || throw "err: launching xephyr failed" >> "$XEPH_LOG" 2>&1 & 
+    sleep $CATCHUP_TIME
+    DISPLAY=:$IDISP i3 || throw "err: launching i3 failed" >> "$i3_LOG" 2>&1 & 
+}
+
+run_i3

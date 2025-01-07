@@ -35,6 +35,25 @@ throw() {
     exit "${2-1}" ## Return code at $2, or 1 by default
 }
 
+is_running() {
+    out="$(kill -0 "$1" 2>&1)"
+    if [ $? -ne 0 ]; then
+        _print "$out" | grep -qe "No such process$" && return 1 ||
+        throw "Error while checking if pid '$1' exists: $out"
+    fi
+}
+
+get_timestamp() {
+    _print "$(date +"%Y%m%d%H%M")"
+}
+
+get_basename_no_pfix() {
+    _print "$(basename "${1%.*}")"
+}
+
+is_file() {
+    [ -f "$1" ]
+}
 get_OS_name() {
     # os-release file should exist on most distros
     OSID=$(sed --silent 's/^ID=//p' /etc/os-release) && [ -n "$OSID" ] && _print "$OSID" && return

@@ -1,16 +1,30 @@
-# source '/usr/lib/helper-func.sh'
+# should already be sourced in .bashrc
+#   source '/usr/lib/helper-func.sh'
 get_fancy_prompt() {
     PROMPT_SIGN=$([ $? -eq 0 ] && colorify '>>' gray || colorify '=>' lr b)
+ 
     branch_label=$(__git_ps1 '(%s)')    && \
         [ ! -z "$branch_label" ]        && \
         if ! (git status 2> /dev/null \
             | tail -n1 | grep -q "nothing to commit,"); then
-            uncommited_state='u'; # set colorify opt to underline
+            uncommited_state='u'; # set opt to underline label
         fi                              && \
         GIT_BRANCH="$(colorify $branch_label lyellow $uncommited_state)"
  
     OP="$(colorify $(whoami)@$(hostname) lblue)"
     CLOCK="$(colorify [$(date +%H:%M:%S)] gray)"
     ABS_PWD="$(colorify $(pwd) lg)"
-    printf "${OP} ${ABS_PWD} ${GIT_BRANCH}\n${CLOCK} ${PROMPT_SIGN} "
+
+    if [ -n "$COMMAND_INSERT_STATUS" ]; then
+        IFS=';' read -r status similar_command similarity_display color command <<< "$COMMAND_INSERT_STATUS"
+        
+        # color coded symbol and similarity percentage
+        [ "$status" = "Inserted" ]                                      &&
+            SIMSYM=$(colorify "$similarity_display" "$color")    ||
+            SIMSYM=$(colorify "$similarity_display" "$color")
+    else
+        SIMSYM="  " # keep width if the received command is failing
+    fi
+
+    printf "${OP} ${ABS_PWD} ${GIT_BRANCH}\n${CLOCK} ${SIMSYM} ${PROMPT_SIGN} "
 }
