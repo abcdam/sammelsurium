@@ -21,7 +21,7 @@ my $DAEMON = run_producer_consumer_pipeline();
 
 STDOUT->autoflush(1);
 undef @ARGV;
-sleep 5;
+
 while (<>) {
     s/^\[(.*?)\]\s*\r?\n?// and do {
         chomp;

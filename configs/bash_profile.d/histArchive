@@ -2,7 +2,6 @@ declare -a COMMAND_INSERT_STATUS_BUFF
 MAX_BUFF_SIZE=20
 HEAD=0
 TAIL=0
-SIZE=0
 
 buffer() {
     local cmd="$1"
@@ -11,45 +10,37 @@ buffer() {
         add)
             COMMAND_INSERT_STATUS_BUFF[$HEAD]="$entry"
             HEAD=$(( (HEAD + 1) % MAX_BUFF_SIZE ))
-            [ "$SIZE" -lt "$MAX_BUFF_SIZE" ]                &&
-                   SIZE=$((SIZE + 1))                       ||
-                   TAIL=$(( (TAIL + 1) % MAX_BUFF_SIZE ))
+            [ "$HEAD" -eq "$TAIL" ] \
+                && TAIL=$(( (TAIL + 1) % MAX_BUFF_SIZE ))
             ;;
         peek)
-            [ -n "$SIZE" ]                                                          && 
-                local last_index=$(( (HEAD - 1 + MAX_BUFF_SIZE ) % MAX_BUFF_SIZE )) && 
-                echo "${COMMAND_INSERT_STATUS_BUFF[$last_index]}"
+            local last_idx=$(( (HEAD - 1 + MAX_BUFF_SIZE ) % MAX_BUFF_SIZE ))
+            echo "${COMMAND_INSERT_STATUS_BUFF[$last_idx]}"
             ;;
         clear)
             COMMAND_INSERT_STATUS_BUFF=()
             HEAD=0
             TAIL=0
-            SIZE=0
             ;;
         status)
-            echo "HEAD: $HEAD"
-            echo "TAIL: $TAIL"
-            echo "MAX_BUFF_SIZE: $MAX_BUFF_SIZE"
-            echo "Buffer contents:"
-            local count=0
-            local index="$TAIL"
-            while [ "$count" -lt "$SIZE" ]; do
-                echo "[$index] ${COMMAND_INSERT_STATUS_BUFF[$index]}"
-                index=$(( (index + 1) % MAX_BUFF_SIZE ))
-                count=$((count + 1))
+            echo -e "HEAD: $HEAD\nTAIL: $TAIL\nMAX_BUFF_SIZE: $MAX_BUFF_SIZE\nContent:"
+            local idx="$TAIL"
+            while [ "$idx" -ne "$HEAD" ]; do
+                echo "[$idx] ${COMMAND_INSERT_STATUS_BUFF[$idx]}"
+                idx=$(( (idx + 1) % MAX_BUFF_SIZE ))
             done
             ;;
     esac
 }
 
-trap 'case "$BASH_COMMAND" in buffer*) ;; *) [ "$BASH_COMMAND" != "$PROMPT_COMMAND" ] && LAST_COMMAND="$BASH_COMMAND";; esac' DEBUG
+trap 'case "$BASH_COMMAND" in *) [ "$BASH_COMMAND" != "$PROMPT_COMMAND" ] && LAST_COMMAND="$BASH_COMMAND";; esac' DEBUG
 archive_successful_cmd() {
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ] && [ "$LAST_COMMAND" != "$(buffer peek)" ]; then
         INSERT_RESULT=$(perl "$HOME/bin/my-cmd2db-writer.pl" "$LAST_COMMAND")
         buffer add "$INSERT_RESULT"
         export COMMAND_INSERT_STATUS="$INSERT_RESULT"
     else
-        export COMMAND_INSERT_STATUS=""
+        export COMMAND_INSERT_STATUS="  "
     fi
 }
 PROMPT_COMMAND=archive_successful_cmd
