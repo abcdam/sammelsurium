@@ -1,0 +1,75 @@
+#!/bin/dash
+#   @abcdam
+# Interface for the POSIX-compliant shell library (short: posher)
+#   It facilitates the modularization, extension, and sourcing of frequently used,
+#   use case-specific shell routines in a simple and uncluttered manner, while aiming
+#   to keep the session environment tidier thanks to a lazy-load-first approach.
+#
+#   TODO: increase call specificity down to the function level with param passthrough
+#
+# http://gondor.apana.org.au/~herbert/dash
+# https://pubs.opengroup.org/onlinepubs/007904875/utilities/xcu_chap01.html#tag_01
+export posh_ctxt_tracker="${posh_ctxt_tracker:-}"
+
+abs_path() {
+    curr_path="$1"
+    while [ -L "$curr_path" ]; do
+        tmp_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
+        curr_path="$(ls -ld "$curr_path" | awk '{print $NF}')"
+        [ "${curr_path#/}" = "$curr_path" ] && curr_path="$tmp_dir/$curr_path"
+    done
+    target_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
+    printf '%s\n' "$target_dir/$(basename "$curr_path")"
+}
+
+
+# # TODO: verify integrity of caller and return path to allow sourcing
+if printf '%s' "$0" | grep -qE '.*/posher$'; then
+    path="$(abs_path "$0")"
+    printf '%s\n' "$path"
+    return 0
+fi
+
+posher() {
+##### Note
+    # we need to know if the requested target module/function was already sourced earlier by the caller.
+    # Namespace specific env var lists to keep track of loaded function symbols might be the best bang/buck approach. A different,
+    # and arguably a lot more robust strategy would involve letting posher act as the middleman that gatekeeps & executes each external lib call
+    # in its own isolated subshell, thus improving env consistency throughout func's runtime. This design would automatically reduce the need
+    # to track symbols thx to the short func lifetimes. Once there is a need for stateful modules, both approaches should be supported anyway.
+#####
+    LIB_DIR='/usr/local/lib/posher.d'
+    LIB_IDS="color yap misc file proc"
+    USAGE="$(printf '%s' "Usage: $(basename "$0") {$(printf "%s|" $LIB_IDS | sed 's/|$//')}")"
+    acc=''
+    while [ "$#" -gt 0 ]; do
+        lib_id=$1
+        valid_lib=0
+        for registered_lib in $LIB_IDS; do
+            [ "$lib_id" = "$registered_lib" ] && valid_lib=1
+        done
+        [ $valid_lib -eq 0 ] && printf '%s\n' "$USAGE" >&2 && exit 1
+
+        path="${LIB_DIR}/${lib_id}-util.sh"
+        ! [ -f "$path" ] && printf '%s\n' "posher lib '$lib_id' not found at '$path'" >&2 && exit 2
+
+        if  [ -n "$posh_ctxt_tracker" ] &&
+            [ -n "$(                                    \
+                IFS=":"
+                for loaded in $posh_ctxt_tracker; do
+                    [ "$lib_id" = "$loaded" ]           \
+                    && printf 'already loaded'          \
+                    && break
+                done                                    \
+            )" ]; then shift && continue
+        fi
+        acc="$acc $lib_id"
+        shift
+    done
+
+    for lib_id in $acc; do
+        . "${LIB_DIR}/${lib_id}-util.sh"
+        posh_ctxt_tracker="${posh_ctxt_tracker:+$posh_ctxt_tracker:}$lib_id"
+    done
+    export posh_ctxt_tracker
+}
