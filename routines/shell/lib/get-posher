@@ -1,4 +1,5 @@
 #!/bin/dash
+set -eu
 #   @abcdam
 # Interface for the POSIX-compliant shell library (short: posher)
 #   It facilitates the modularization, extension, and sourcing of frequently used,
@@ -22,15 +23,15 @@ abs_path() {
     printf '%s\n' "$target_dir/$(basename "$curr_path")"
 }
 
-
-# # TODO: verify integrity of caller and return path to allow sourcing
-if printf '%s' "$0" | grep -qE '.*/posher$'; then
-    path="$(abs_path "$0")"
-    printf '%s\n' "$path"
-    return 0
-fi
-
+# target single pure funcs without loading associated libs into env
 posher() {
+    target_lib="$1" && shift
+    target_fun="$2" && shift
+
+}
+
+# lazyload a lib
+load_posher() {
 ##### Note
     # we need to know if the requested target module/function was already sourced earlier by the caller.
     # Namespace specific env var lists to keep track of loaded function symbols might be the best bang/buck approach. A different,
@@ -73,3 +74,9 @@ posher() {
     done
     export posh_ctxt_tracker
 }
+
+# # TODO: verify integrity of caller and return path to allow sourcing
+if printf '%s' "$0" | grep -qE '.*/posher-get$'; then
+    path="$(abs_path "$0")"
+    printf '%s' "$path"
+fi

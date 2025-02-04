@@ -4,7 +4,7 @@ is_root() {
 }
 
 verify_root() {
-    is_root && return || . $(posher) throw 'must be root'
+    is_root && return || posher yap throw 'must be root'
 }
 
 timestamp() {
@@ -20,7 +20,7 @@ get_OS_name() {
     elif [ -f /etc/fedora-release ]; then
         printf 'Fedora'
     else
-        . $(posher) throw "OS name not detected, extend get_OS_name()"
+        posher yap throw "OS name not detected, extend get_OS_name()"
     fi
 }
 
@@ -30,7 +30,7 @@ get_pkg_gpg_dir() {
 
     if      [ "$OSID" = "debian" ]; then DIR=/usr/share/keyrings
     elif    [ "$OSID" = "Fedora" ]; then DIR=/etc/pki/rpm-gpg
-    else    . $(posher) throw "GPG directory for OS '$OSID' not defined, extend get_pkg_gpg_dir()."
+    else    posher yap throw "GPG directory for OS '$OSID' not defined, extend get_pkg_gpg_dir()."
     fi
     printf '%s' "$DIR"
 }

@@ -1,0 +1,118 @@
+#!/bin/dash
+set -eu
+. $(get-posher)
+load_posher yap proc
+
+BIN=/usr/local/sbin/dzen2runnerd
+TARGET="perl $BIN"
+ARGS="bl bc br"
+SELF_ID="$(basename "$BIN")"
+INTERVAL=0.1
+RETRIES=5
+
+stop() {
+    ret=0
+    infoline "Stopping $SELF_ID services" "$ARGS"
+    for arg in $ARGS; do
+        DISP_ID="$SELF_ID $arg"
+        CMD="$TARGET $arg"
+        pid="$(pgrep_cmd_strict "$CMD")"
+        statusline "killing '$DISP_ID'"
+        [ -z "$pid" ] && status_ok 'not running' && continue
+        kill -TERM "$pid" 2>/dev/null
+        counter=$RETRIES
+        while is_running_pid "$pid" && [ $counter -gt 0 ]; do
+            sleep $INTERVAL
+            counter=$((counter - 1))
+        done
+        if ! is_running_pid "$pid"; then
+            status_ok "(pid: $pid)"
+        elif [ $counter -eq 0 ]; then
+            err="$(kill -KILL "$pid" 2>&1)"                 \
+                && status_warn "force killed (pid: $pid)"   \
+                || status_fail "error: $err"
+            [ -n "$err" ] && ret=1
+        fi
+    done
+    return $ret
+}
+
+start() {
+    infoline "Spinning up $SELF_ID services" "$ARGS"
+    ret=0
+
+    for arg in $ARGS; do
+        DISP_ID="$SELF_ID $arg"
+        CMD="$TARGET $arg"
+        pid="$(pgrep_cmd_strict "$CMD")"
+        statusline "starting $DISP_ID"
+        if is_running_pid $pid; then
+            status_warn "already running (pid: $pid)"
+            continue
+        fi
+        $CMD
+        counter=$RETRIES
+        while [ $counter -gt 0 ]; do
+            pid="$(pgrep_cmd_strict "$CMD")"
+            if is_running_pid "$pid"; then
+                status_ok "(pid: $pid)"
+                break
+            fi
+            sleep $INTERVAL
+            counter=$((counter - 1))
+        done
+        pid="$(pgrep_cmd_strict "$CMD")"
+        if ! is_running_pid "$pid"; then
+            status_fail
+            stop
+            ret=1
+            break
+        fi
+    done
+    return $ret
+}
+
+
+
+status() {
+    infoline "Checking $SELF_ID services" "$ARGS"
+    for arg in $ARGS; do
+        CMD="$TARGET $arg"
+        statusline "$CMD"
+        pid="$(pgrep_cmd_strict "$CMD")"
+        if is_running_pid "$pid"; then
+            status_ok "details: 'pstree -p -g -a -l $pid'"
+        else
+            status_warn "not running"
+        fi
+    done
+}
+
+restart() {
+    infoline "Restarting $SELF_ID services" "$ARGS"
+    stop
+    start
+}
+
+case "$1" in
+    start)
+        start
+        exit $?
+        ;;
+    stop)
+        stop
+        exit $?
+        ;;
+    restart)
+        restart
+        exit $?
+        ;;
+    status)
+        status
+        exit 0
+        ;;
+    *)
+        printf "Usage: %s {start|stop|restart|status}\n" "$0"
+        exit 1
+        ;;
+esac

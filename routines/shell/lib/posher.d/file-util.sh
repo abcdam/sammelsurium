@@ -4,7 +4,7 @@ get_basename_no_pfix() {
 
 get_dir_of() {
     [ -n "$1" ] && dirname "$(abs_path "$1")" && return     \
-        || . $(posher)  throw 'received empty directory path'
+        || posher yap throw 'received empty directory path'
 }
 
 is_file() {

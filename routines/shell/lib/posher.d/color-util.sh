@@ -1,5 +1,5 @@
 
-_parse_colorify_option() {
+_parse_hue_opt() {
     case "$1" in
         ""|n)   printf '0';;
         b)      printf '1';;
@@ -10,7 +10,7 @@ _parse_colorify_option() {
     esac
 }
 
-_parse_colorify_color() {
+_parse_hue_color() {
     case "$1" in
         ""|w|white)             printf '37';;
         r|red)                  printf '31';;
@@ -33,15 +33,14 @@ _parse_colorify_color() {
 }
 
 # Output: cosmetically modified input string according to given params
-# _input (required): string of chars to be colorified
+# $1: txt (required): string of chars to be colored
 # _color (default (37) white): supports basic 4-bit color set -> check switch case for keys
 # _option (default (n)ormal): (n)ormal, (b)old, (f)aint, (i)talics, (u)nderlined
 #
 hue() {
-    _input="$1"
-    [ -z "$_input" ] && printf "Error: missing _input in colorify() arg.\n" >&2 && exit 1
-    _color=$(_parse_colorify_color "$2")
-    _option=$(_parse_colorify_option "$3")
-    RESET=$(printf '\001\033[0m\002')
-    printf "\001\033[${_option};${_color}m\002${_input}${RESET}"
+    [ -z "$1" ] && printf "Error: missing 1st positional argument (target text) in hue() params .\n" >&2 && exit 1
+    _hue_color="$(_parse_hue_color "${2:-}")"
+    _hue_opt="$(_parse_hue_opt "${3:-}")"
+    RESET='\033[0m'
+    printf "\033[${_hue_opt};${_hue_color}m${1}${RESET}"
 }
