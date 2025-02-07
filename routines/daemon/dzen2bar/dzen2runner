@@ -112,7 +112,7 @@ case "$1" in
         exit 0
         ;;
     *)
-        printf "Usage: %s {start|stop|restart|status}\n" "$0"
+        ramble "Usage: $(basename "$0") {start|stop|restart|status}"
         exit 1
         ;;
 esac

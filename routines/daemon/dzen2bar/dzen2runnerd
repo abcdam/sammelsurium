@@ -5,25 +5,35 @@ use Cwd 'abs_path';
 use POSIX qw(strftime WNOHANG);
 use Carp;
 use File::Basename;
-my $LIB_DIR='/usr/local/lib/dzen2runner.d/lib';
-my $CONFIG_DIR="/usr/local/etc/dzen2runnerd.yml";
-require "$LIB_DIR/Daemon.pm";
-use YAML::Tiny qw(LoadFile);
-my $CONFIG = LoadFile($CONFIG_DIR);
-my $TASKS = abs_path("$LIB_DIR/../scraper");
+
+my ( $CONFIG, $TASKS );
+
+BEGIN {
+    use constant LIB_DIR => '/usr/local/lib/dzen2runner.d/lib';
+    my $CONFIG_FILE = "/usr/local/etc/dzen2runnerd.yml";
+    use lib LIB_DIR;
+    use Daemon;
+    use ConfigParser;
+    $CONFIG = ConfigParser->load(
+        $CONFIG_FILE,
+        defaults => 'defaults',
+        base_key => 'group'
+    ) or croak("couldn't load config @ $CONFIG_FILE");
+    $TASKS = abs_path( LIB_DIR . '/../scraper' );
+}
 my $USAGE = "Usage: $0 bl | bc | br";
 
 $SIG{TERM} = $SIG{INT} = \&reaper;
 
 ## cli input
 croak "$USAGE"
-    unless @ARGV == 1;
+  unless @ARGV == 1;
 my $COMMAND = shift @ARGV;
 croak "Invalid command '$COMMAND': $USAGE"
-    unless $COMMAND =~ /^(bl|bc|br)$/;
+  unless $COMMAND =~ /^(bl|bc|br)$/;
 ##
 
-my @ORDER = @{$CONFIG->{global}{layout}{$COMMAND}{scraper}};
+my @ORDER = @{ $CONFIG->get_param( { path => $COMMAND . '.scraper' } ) };
 my %CURRENT_STATE;
 @CURRENT_STATE{@ORDER} = ('') x @ORDER;
 
@@ -36,10 +46,11 @@ while (<>) {
     s/^\[(.*?)\]\s*\r?\n?// and do {
         chomp;
         croak "Misconfiguration, tag '$1' not a supported input filter."
-            unless exists $CURRENT_STATE{$1};
-        next if $_ eq $CURRENT_STATE{$1};
+          unless exists $CURRENT_STATE{$1};
+        next
+          if $_ eq $CURRENT_STATE{$1};
         $CURRENT_STATE{$1} = $_;
-        say (join ' ‖ ', grep { /.+/ } @CURRENT_STATE{@ORDER});
+        say( join ' ‖ ', grep {/.+/} @CURRENT_STATE{@ORDER} );
     }
 }
 
@@ -49,107 +60,129 @@ sub reaper {
 }
 
 sub get_screen_dimensions {
-    my ($w, $h) = `xrandr` =~ /connected.*?(\d+)x(\d+)/
-        or croak "Failed to get screen dimensions";
-    return ($w, $h);
+    my ( $w, $h ) = `xrandr` =~ /connected.*?(\d+)x(\d+)/
+      or croak "Failed to get screen dimensions";
+    return ( $w, $h );
 }
 
-sub get_param {
-    my ($layout, $param, $default_path, $default) = @_;
-    return $layout->{$param}                            //
-           $CONFIG->{global}{layout}{default}{$param}   //
-           $default;
+sub calculate_y_params {
+    my ($screen_h) = @_;
+    my $bar_extent = $CONFIG->get_param( {
+            path     => $COMMAND . '.height',
+            fallback => 20
+        }
+    );
+
+    my $bar_pos
+      = substr( $COMMAND, 0, 1 ) eq 'b'
+      ? $screen_h - $bar_extent
+      : 0;
+    return $bar_pos, $bar_extent;
 }
 
-sub get_global_layout_param {
-    my ($param) = @_;
-    return $CONFIG->{global}{layout}{default}{$param} // croak "Missing default layout $param";
-}
+sub calculate_x_params {
+    my ($screen_w) = @_;
+    my $x_pos_area = substr( $COMMAND, 1, 1 );
 
-sub calculate_y_position {
-    my ($screen_h, $element_h) = @_;
-    my $vertical = substr($COMMAND, 0, 1);
-    return $vertical eq 'b' ? $screen_h - $element_h : 0;
-}
+    # if center bar does not exist, assume two bar setup
+    my $center_bar_extent = (
+          $x_pos_area eq 'c'
+        ? $CONFIG->get_param( { path => $COMMAND } )
+        : $CONFIG->get_param( {
+                path     => substr( $COMMAND, 0, 1 ) . 'c',
+                fallback => {},
+            }
+        )
+    )->{width} // 0;
 
-sub get_global_color {
-    my ($type) = @_;
-    return $CONFIG->{global}{default}{color}{$type}
-        // croak "Missing default color $type";
-}
+    my $flank_width = ( $screen_w - $center_bar_extent ) / 2;
+    return $flank_width, $center_bar_extent
+      if $x_pos_area eq 'c';
 
-sub calculate_dimensions {
-    my ($screen_w, $layout) = @_;
-    my $horizontal = substr($COMMAND, 1, 1);
-
-    my $width_source = ($horizontal eq 'c')
-        ? $layout
-        : $CONFIG->{global}{layout}{substr($COMMAND,0,1).'c'};
-
-    my $center_width = $width_source->{width}
-        // croak sprintf "Element '%s' requires width because it's used as the anchor'",
-            $horizontal eq 'c' ? $COMMAND : substr($COMMAND,0,1).'c';
-
-    my $flank_width = ($screen_w - $center_width) / 2;
-    return ($center_width, $flank_width)
-        if $horizontal eq 'c';
-
-    my $x_pos = $horizontal eq 'r' ? $screen_w - $flank_width : 0;
-    return ($flank_width, $x_pos);
-}
+    my $x_pos
+      = $x_pos_area eq 'r'
+      ? $screen_w - $flank_width
+      : 0;
+    return $x_pos, $flank_width;
+} ## end sub calculate_x_params
 
 sub get_dzen2_options {
-    my @options;
-    my $layout          = $CONFIG->{global}{layout}{$COMMAND} || {};
-    my ($px_w, $px_h)   = get_screen_dimensions();
-    my $height          = get_param($layout, 'height', 'default.px_height', 20);
-    my $align           = get_param($layout, 'align', 'default.align', 'c');
-    my $y_pos           = calculate_y_position($px_h, $height);
-    my ($width, $x_pos) = calculate_dimensions($px_w, $layout);
-
     croak "Only composition mode supported"
-        unless get_global_layout_param('mode') eq 'composition';
+      if $CONFIG->get_param( { path => 'mode' } ) eq 'composition';
 
-    push @options, '-w', $width;
-    push @options, '-x', $x_pos;
-    push @options, "-y", $y_pos;
-    push @options, "-h", $height;
-    push @options, "-ta", $align;
-    push @options, '-dock' if $layout->{is_dock};
-    push @options, '-fn', get_global_layout_param('font');
-    push @options, '-bg', get_global_color('bg');
-    push @options, '-fg', get_global_color('fg');
+    my @options;
+    my ( $px_w,  $px_h )       = get_screen_dimensions();
+    my ( $y_pos, $bar_heigth ) = calculate_y_params($px_h);
+    my ( $x_pos, $bar_width )  = calculate_x_params($px_w);
+
+
+    push @options,
+      '-w',  $bar_width,
+      '-x',  $x_pos,
+      '-y',  $y_pos,
+      '-h',  $bar_heigth,
+      '-fn', $CONFIG->get_param( { path => $COMMAND . '.font' } ),
+
+      '-ta',
+      $CONFIG->get_param( {
+            path     => $COMMAND . '.align',
+            fallback => 'c'
+        }
+      ),
+
+      '-bg', $CONFIG->get_param( { path => $COMMAND . '.color.bg' } )
+      // '#000000',
+
+      '-fg', $CONFIG->get_param( { path => $COMMAND . '.color.fg' } )
+      // '#FFFFFF';
+
+    push @options,
+      '-dock'
+      if $CONFIG->get_param( {
+            path     => $COMMAND . '.is_dock',
+            fallback => 0,
+        }
+      );
+
     return @options;
-}
+} ## end sub get_dzen2_options
 
 sub run_producer_consumer_pipeline {
     my @producers;
     push @producers, "$TASKS/$_.pl" for @ORDER;
     pipe my $collector_reader, my $collector_writer
-        or die "Failed to create collector pipe: $!";
+      or die "Failed to create collector pipe: $!";
     pipe my $dzen2_reader, my $dzen2_writer
-        or die "Failed to create dzen2 pipe: $!";
+      or die "Failed to create dzen2 pipe: $!";
 
     my @options = get_dzen2_options();
 
-    my $collector = Daemon->is_myself({
-            cmd => undef,
-            src => $collector_reader,
-            sink => $dzen2_writer,
+    my $collector = Daemon->is_myself( {
+            cmd       => undef,
+            src       => $collector_reader,
+            sink      => $dzen2_writer,
             is_leader => 1,
-            uid => 'dzen2runnerd',
-        })->with_child('dzen2', {
-                cmd => ['dzen2', '-p',  @options ],
-                src => $dzen2_reader,
-    });
-    open my $null_in, '<', '/dev/null' or die "Cannot open /dev/null for reading: $!";
+            uid       => 'dzen2runnerd',
+        }
+    )->with_child(
+        'dzen2',
+        {
+            cmd => [ 'dzen2', '-p', @options ],
+            src => $dzen2_reader,
+        }
+    );
+    open my $null_in, '<', '/dev/null'
+      or die "Cannot open /dev/null for reading: $!";
     for (@producers) {
-        my $id = fileparse($_, qr/\..*/);
-        $collector->with_child($id, {
-                    cmd => ['perl', $_, $id],
-                    src => $null_in,
-                    sink => $collector_writer
-        });
+        my $id = fileparse( $_, qr/\..*/ );
+        $collector->with_child(
+            $id,
+            {
+                cmd  => [ 'perl', $_, $id ],
+                src  => $null_in,
+                sink => $collector_writer
+            }
+        );
     }
     return $collector->dispatch;
-}
+} ## end sub run_producer_consumer_pipeline
