@@ -10,73 +10,101 @@ set -eu
 #
 # http://gondor.apana.org.au/~herbert/dash
 # https://pubs.opengroup.org/onlinepubs/007904875/utilities/xcu_chap01.html#tag_01
-export posh_ctxt_tracker="${posh_ctxt_tracker:-}"
+
+_POSHER_LIB_WHITELIST='color yap misc file proc'
+_POSHER_RUNTIME_D="/tmp/posher.d/$$"
+
+export _POSHER_CTXT_STATE="${_POSHER_CTXT_STATE:-}"
+export POSHER_LIB_DIR='/usr/local/lib/posher.d'
 
 abs_path() {
-    curr_path="$1"
-    while [ -L "$curr_path" ]; do
-        tmp_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
-        curr_path="$(ls -ld "$curr_path" | awk '{print $NF}')"
-        [ "${curr_path#/}" = "$curr_path" ] && curr_path="$tmp_dir/$curr_path"
-    done
-    target_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
-    printf '%s\n' "$target_dir/$(basename "$curr_path")"
+  curr_path="$1"
+  while [ -L "$curr_path" ]; do
+      tmp_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
+      curr_path="$(ls -ld "$curr_path" | awk '{print $NF}')"
+      [ "${curr_path#/}" = "$curr_path" ] && curr_path="$tmp_dir/$curr_path"
+  done
+  target_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
+  printf '%s/%s' "$target_dir" "$(basename "$curr_path")"
+  unset curr_path target_dir tmp_dir
 }
 
-# target single pure funcs without loading associated libs into env
+is_cmd_available() {
+  command -v "${1:-}" > /dev/null
+}
+
+# to register actions in exit trap cmd "queue", pass them as a single string in
+# # $1 to append (total of 1 args)
+# # $2 with '-unshift' in $1 to prepend (total of 2 args)
+add_exitrap() {
+  retval=1
+  case "$#" in
+    1) [ "$1" != "-unshift" ] && _POSHER_EXITRAP="${_POSHER_EXITRAP:+$_POSHER_EXITRAP; }$1" && retval=0;;
+    2) [ "$1" = "-unshift" ]  && _POSHER_EXITRAP="$2${_POSHER_EXITRAP:+; $_POSHER_EXITRAP}" && retval=0;;
+    *) ;;
+  esac
+  [ $retval -ne 0 ] && printf '%s\n' 'Usage: add_exitrap ["-unshift"] "<func_1[; cmd_x[; ...]]>"' >&2
+  return $retval
+}
+
+# $1 -> lib id
+# $2 -> func selector
+register_sigfile_p() {
+  __POSHER_SIG_FILE="$_POSHER_RUNTIME_D/$1-$2.sig"
+}
+
+# if a sigfile is registered, it's consumed & returned.
+# # else it constructs & returns a sigfile path from args
+# $1 -> lib id
+# $2 -> func selector
+get_sigfile_p() {
+  printf '%s' "$__POSHER_SIG_FILE" && unset __POSHER_SIG_FILE \
+    || printf '%s/%s-%s.sig' "$_POSHER_RUNTIME_D" "$1" "$2"   \
+    || return 1
+}
+
 posher() {
-    target_lib="$1" && shift
-    target_fun="$2" && shift
-
+  retval=0
+  if is_cmd_available "$2"; then
+    shift 1
+    "$@" || retval=$?
+  else
+    __posher_intern_run_isolated "$@" || retval=$?
+    if [ $retval -ne 0 ]; then
+      sigfile="$(get_sigfile_p "$1" "$2")"
+      if exival=$(cat "$sigfile"); then
+        rm $sigfile ||
+          printf "error: rm of sigfile '%s' created by func '%s' failed with code %d. exiting with exit code of func.\n" >&2 \
+            "$sigfile" "$2" $?
+        exit $exival
+      else unset sigfile
+      fi
+    fi
+  fi
+  return $retval
 }
 
-# lazyload a lib
+# $@ -> lib ids
 load_posher() {
-##### Note
-    # we need to know if the requested target module/function was already sourced earlier by the caller.
-    # Namespace specific env var lists to keep track of loaded function symbols might be the best bang/buck approach. A different,
-    # and arguably a lot more robust strategy would involve letting posher act as the middleman that gatekeeps & executes each external lib call
-    # in its own isolated subshell, thus improving env consistency throughout func's runtime. This design would automatically reduce the need
-    # to track symbols thx to the short func lifetimes. Once there is a need for stateful modules, both approaches should be supported anyway.
-#####
-    LIB_DIR='/usr/local/lib/posher.d'
-    LIB_IDS="color yap misc file proc"
-    USAGE="$(printf '%s' "Usage: $(basename "$0") {$(printf "%s|" $LIB_IDS | sed 's/|$//')}")"
-    acc=''
-    while [ "$#" -gt 0 ]; do
-        lib_id=$1
-        valid_lib=0
-        for registered_lib in $LIB_IDS; do
-            [ "$lib_id" = "$registered_lib" ] && valid_lib=1
-        done
-        [ $valid_lib -eq 0 ] && printf '%s\n' "$USAGE" >&2 && exit 1
-
-        path="${LIB_DIR}/${lib_id}-util.sh"
-        ! [ -f "$path" ] && printf '%s\n' "posher lib '$lib_id' not found at '$path'" >&2 && exit 2
-
-        if  [ -n "$posh_ctxt_tracker" ] &&
-            [ -n "$(                                    \
-                IFS=":"
-                for loaded in $posh_ctxt_tracker; do
-                    [ "$lib_id" = "$loaded" ]           \
-                    && printf 'already loaded'          \
-                    && break
-                done                                    \
-            )" ]; then shift && continue
-        fi
-        acc="$acc $lib_id"
-        shift
-    done
-
-    for lib_id in $acc; do
-        . "${LIB_DIR}/${lib_id}-util.sh"
-        posh_ctxt_tracker="${posh_ctxt_tracker:+$posh_ctxt_tracker:}$lib_id"
-    done
-    export posh_ctxt_tracker
+  retval=0
+  IFS=" "
+  while [ "$#" -gt 0 ]; do
+    __posher_intern_source_if_not_available "$1" \
+      && _POSHER_CTXT_STATE="${_POSHER_CTXT_STATE:+$_POSHER_CTXT_STATE:}$1" || retval=$?
+    [ $retval -ne 0 ] && [ $retval -ne 11 ] && __posher_intern_error_printer $retval
+    shift
+  done
+  unset IFS
+  export _POSHER_CTXT_STATE
 }
+
 
 # # TODO: verify integrity of caller and return path to allow sourcing
-if printf '%s' "$0" | grep -qE '.*/posher-get$'; then
-    path="$(abs_path "$0")"
-    printf '%s' "$path"
+case $0 in
+  */get-posher) printf '%s' "$(abs_path "$0")" && exit 0 ;;
+esac
+
+if ! [ -d "$_POSHER_RUNTIME_D" ]; then
+  . "$POSHER_LIB_DIR/posher-intern.sh"
+  add_exitrap '-unshift' "rm -r $_POSHER_RUNTIME_D"
 fi

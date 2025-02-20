@@ -60,7 +60,8 @@ infoline() {
 
 throw() {
     ramble "$(hue "[FATAL] $1" r b)" >&2
-    exit $(( ${2-1} )) ## Exit code at $2, or 1 by default
+    sigfile="$(get_sigfile_p)" || exit ${2-1}
+    printf '%d' "${2-1}" > "$sigfile"
 }
 
 # general purpose printers
