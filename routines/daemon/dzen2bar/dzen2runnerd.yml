@@ -1,55 +1,60 @@
 defaults:
-    scraper:
-        interval: 5
-        color:
-            value: "#B3541E"
-            label: "#774360"
-    group:
-        px_height: 20
-        mode: composition
-        font: DejaVu Sans Mono-12
-        color:
-            fg: "#577590"
-            bg: "#1A1A2E"
+  scraper:
+    interval: 5
+    color:
+      value: "#B3541E"
+      label: "#774360"
+  group:
+    px_height: 20
+    mode: composition
+    font: DejaVu Sans Mono-12
+    color:
+      fg: "#577590"
+      bg: "#1A1A2E"
 
 group:
-    bc:
-        scraper:
-            - localtime_view
-        width: 220
-        align: c
-    bl:
-        scraper:
-            - workspace_view
-        align: l
-        is_dock: 1
-    br:
-        scraper:
-            - lvm_stats
-            - cpu_stats
-            - memory_stats
-            - wifi_stats
-        align: r
+  bc:
+    scraper:
+      - localtime_view
+    width: 220
+    align: c
+  bl:
+    scraper:
+      - audiovol_view
+      - workspace_view
+    align: l
+    is_dock: 1
+  br:
+    scraper:
+      - lvm_stats
+      - cpu_stats
+      - memory_stats
+      - net_stats
+    align: r
 
 scraper:
-    cpu_stats:
+  cpu_stats:
+    interval: 1
 
-    localtime_view:
-        interval: 1
-        color:
-            value: "#774360"
+  localtime_view:
+    interval: 1
+    color:
+      value: "#774360"
 
-    memory_stats:
+  memory_stats:
 
-    lvm_stats:
-        dm_map:
-            dm-0: /home
-            dm-1: /root
-            dm-3: /tmp
-            dm-4: /var
+  lvm_stats:
+    device_map:
+      dm-0: /home
+      dm-1: /root
+      dm-3: /tmp
+      dm-4: /var
 
-    wifi_stats:
-        interface: wlan0
+  net_stats:
+    device_map:
+      wlan0: wlan0
 
-    workspace_view:
-        interval: 0.3
+  workspace_view:
+    interval: 0.3
+
+  audiovol_view:

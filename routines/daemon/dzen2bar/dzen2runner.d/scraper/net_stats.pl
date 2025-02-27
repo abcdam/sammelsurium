@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use v5.36.0;
 
-package Lvm_stats;
+package Net_stats;
 
 
 BEGIN {
@@ -10,7 +10,6 @@ BEGIN {
 }
 
 use parent qw(TaskRunner IOActivity);
-use constant SECTOR_SIZE => 512;
 
 
 sub run {
@@ -21,27 +20,26 @@ sub run {
 
 sub fetch_update {
     my($self) = @_;
-    my $curr_stats = $self->_get_lvm_activity;
+
+    my $curr_stats = $self->_get_net_activity;
     $self->fetch_IO_update($curr_stats);
 }
 
 
-sub _get_lvm_activity {
+sub _get_net_activity {
     my($self) = @_;
+    my @content = Path::Tiny::path('/proc/net/dev')->lines;
     return $self->_get_activity({
         data_loader => sub {
-            my $dm_dev = shift;
-            my($line) =
-              Path::Tiny::path("/sys/block/$dm_dev/stat")->lines;
+            my $iface_dev = shift;
+            my($line) = grep {/$iface_dev/} @content;
             return $line;
         },
         data_parser => sub {
-            return map {$_ * SECTOR_SIZE} (
-                grep {length} split /\s+/, shift
-            )[ 2, 6 ];
+            return (grep {length} split /\s+/, shift)[ 1, 9 ];
         }
     });
 }
 
 package main;
-Lvm_stats->run;
+Net_stats->run;

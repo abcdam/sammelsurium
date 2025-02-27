@@ -3,6 +3,7 @@ use v5.36.0;
 
 package Workspace_view;
 
+
 BEGIN {
     use File::Basename;
     push @INC, dirname(__FILE__) . '/../lib';
@@ -12,39 +13,41 @@ use IPC::Run;
 use JSON::XS;
 use parent 'TaskRunner';
 
+my @CMD = qw(i3-msg -t get_workspaces);
+
+
 sub run {
     my $class = shift;
     $class->init->run_loop;
 }
 
-sub get_update {
-    my ($self) = @_;
-    my $workspace = $self->_get_active_workspace();
-    return
-        $self->colorify_entry( ' workspace', $self->{color}{label} ) . ': '
-      . $workspace;
+
+sub fetch_update {
+    my($self) = @_;
+    $self->append_tokens([
+        { label => 'workspace' },
+        { sep   => ': ' },
+        $self->_get_workspaces_state()
+    ]);
 }
 
-sub _get_active_workspace {
+
+sub _get_workspaces_state {
     my $self = shift;
-    my $output;
-    IPC::Run::run [ 'i3-msg', '-t', 'get_workspaces' ], \undef, \$output;
+    my $workspace_json;
 
-    my $workspaces = decode_json($output);
-    my @formatted_workspaces;
+    Carp::croak sprintf 'Failed to run IPC cmd: %s', join ' ', @CMD
+      unless IPC::Run::run [@CMD], \undef, \$workspace_json;
 
-    for my $ws (@$workspaces) {
-        if ( $ws->{focused} ) {
-            push @formatted_workspaces,
-              $self->colorify_entry( $ws->{name}, $self->{color}{value} );
-        }
-        else {
-            push @formatted_workspaces,
-              $self->colorify_entry( $ws->{name}, $self->{color}{label} );
-        }
-    }
-    return join ' ', @formatted_workspaces;
-} ## end sub _get_active_workspace
+    my @wspaces = @{ decode_json($workspace_json) };
+    return
+      (@wspaces > 1 || exists $wspaces[0]->{focused})
+      ? map {{
+        ($_->{focused} ? 'value' : 'label')
+          => sprintf '%s ', $_->{name}
+      }} @wspaces
+      : undef;
+}
 
 package main;
 Workspace_view->run;
