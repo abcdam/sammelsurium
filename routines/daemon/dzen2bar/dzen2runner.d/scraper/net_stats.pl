@@ -22,14 +22,14 @@ sub fetch_update {
     my($self) = @_;
 
     my $curr_stats = $self->_get_net_activity;
-    $self->fetch_IO_update($curr_stats);
+    $self->_fetch_IO_update($curr_stats);
 }
 
 
 sub _get_net_activity {
     my($self) = @_;
     my @content = Path::Tiny::path('/proc/net/dev')->lines;
-    return $self->_get_activity({
+    return $self->_get_IO_activity({
         data_loader => sub {
             my $iface_dev = shift;
             my($line) = grep {/$iface_dev/} @content;

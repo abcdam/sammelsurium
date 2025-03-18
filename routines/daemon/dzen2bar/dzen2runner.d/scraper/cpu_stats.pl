@@ -34,7 +34,9 @@ sub _update_cpu_freq {
     my $prev_freqs_buff = $self->{last_5_freqs} // [$curr_freq];
 
     unshift @{ $self->{last_5_freqs} }, $curr_freq;
-    pop @{ $self->{last_5_freqs} } if 5 < scalar @{ $self->{last_5_freqs} };
+
+    pop @{ $self->{last_5_freqs} }
+      unless scalar @{ $self->{last_5_freqs} } < 5;
 
     my $freqs_sum = 0;
     $freqs_sum += $_ for @{ $self->{last_5_freqs} };

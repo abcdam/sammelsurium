@@ -22,13 +22,13 @@ sub run {
 sub fetch_update {
     my($self) = @_;
     my $curr_stats = $self->_get_lvm_activity;
-    $self->fetch_IO_update($curr_stats);
+    $self->_fetch_IO_update($curr_stats);
 }
 
 
 sub _get_lvm_activity {
     my($self) = @_;
-    return $self->_get_activity({
+    return $self->_get_IO_activity({
         data_loader => sub {
             my $dm_dev = shift;
             my($line) =
@@ -36,7 +36,7 @@ sub _get_lvm_activity {
             return $line;
         },
         data_parser => sub {
-            return map {$_ * SECTOR_SIZE} (
+            return map { $_ * SECTOR_SIZE } (
                 grep {length} split /\s+/, shift
             )[ 2, 6 ];
         }

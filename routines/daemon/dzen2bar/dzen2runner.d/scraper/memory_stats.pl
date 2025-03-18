@@ -22,7 +22,7 @@ sub fetch_update {
     my($self) = @_;
 
     my($mem, $alloc) = (_read_meminfo(), 0);
-    $alloc -= $mem->{$_} for (qw(MemFree Buffers Cached));
+    $alloc -= $_ for @$mem{qw(MemFree Buffers Cached)};
 
     my $alloc_rel = 1 + $alloc / $mem->{MemTotal};
 

@@ -1,58 +1,84 @@
 #!/usr/bin/env perl
 # A Durchlauferhitzer that deploys various info scraper processes and listens for their output. Offers a single connector to receive && process data, if needed, before forwarding it to dzen2.
 use v5.36.0;
+
 use Cwd 'abs_path';
 use POSIX qw(strftime WNOHANG);
 use Carp;
 use File::Basename;
+use Try::Tiny;
 
-my($CONFIG, $TASKS);
+use constant LIB_DIR     => '/usr/local/lib/dzen2runner.d/lib';
+use constant CONF_f_Path => "/usr/local/etc/dzen2runnerd.yml";
 
+use lib LIB_DIR;
 
-BEGIN {
-    use constant LIB_DIR => '/usr/local/lib/dzen2runner.d/lib';
-    my $CONFIG_FILE = "/usr/local/etc/dzen2runnerd.yml";
-    use lib LIB_DIR;
-    use Daemon;
-    use ConfigParser;
-    $CONFIG = ConfigParser->load(
-        $CONFIG_FILE,
-        defaults => 'defaults',
-        base_key => 'group'
-    ) or croak("couldn't load config @ $CONFIG_FILE");
-    $TASKS = abs_path(LIB_DIR . '/../scraper');
-}
-my $USAGE = "Usage: $0 bl | bc | br";
+use MonoLog;
+use Daemon;
+use ConfigParser;
 
-$SIG{TERM} = $SIG{INT} = \&reaper;
+my($TASKS, $LOG, $DAEMON, $LAYOUT_ARG, $conf_handler);
 
 ## cli input
+my $USAGE = "Usage: $0 bl | bc | br";
 croak "$USAGE"
   unless @ARGV == 1;
-my $COMMAND = shift @ARGV;
-croak "Invalid command '$COMMAND': $USAGE"
-  unless $COMMAND =~ /^(bl|bc|br)$/;
+$LAYOUT_ARG = shift @ARGV;
+croak "Invalid command '$LAYOUT_ARG': $USAGE"
+  unless $LAYOUT_ARG =~ /^(bl|bc|br)$/;
 ##
 
-my @ORDER = @{ $CONFIG->get_param({ path => $COMMAND . '.scraper' }) };
+
+$LOG = MonoLog::init_logger(
+    { tag => (sprintf '%s:%s', basename($0), $LAYOUT_ARG) });
+$conf_handler = load_conf({
+    path     => CONF_f_Path,
+    defaults => 'defaults',
+    base_key => 'group',
+});
+
+$TASKS = abs_path(LIB_DIR . '/../scraper');
+
+my @ORDER = @{ $conf_handler->get_param({ path => $LAYOUT_ARG . '.scraper' }) };
 my %CURRENT_STATE;
 @CURRENT_STATE{@ORDER} = ('') x @ORDER;
 
-my $DAEMON = run_producer_consumer_pipeline();
+$SIG{TERM} = $SIG{INT} = \&reaper;
 
-STDOUT->autoflush(1);
-undef @ARGV;
+try {
+    $DAEMON = run_producer_consumer_pipeline();
+    $LOG->info("Started new '$LAYOUT_ARG' instance");
+    STDOUT->autoflush(1);
+    undef @ARGV;
 
-while (<>) {
-    s/^\[(.*?)\]\s*\r?\n?// and do {
-        chomp;
-        croak "Misconfiguration, tag '$1' not a supported input filter."
-          unless exists $CURRENT_STATE{$1};
-        next
-          if $_ eq $CURRENT_STATE{$1};
-        $CURRENT_STATE{$1} = $_;
-        say(join '‖ ', grep {/.+/} @CURRENT_STATE{@ORDER});
-    }
+    while (<>) {
+        s/^\[(.*?)\]\s*\r?\n?// and do {
+            chomp;
+            croak "Misconfiguration, tag '$1' not a supported input filter."
+              unless exists $CURRENT_STATE{$1};
+            next
+              if $_ eq $CURRENT_STATE{$1};
+            $CURRENT_STATE{$1} = $_;
+            say(join '‖ ', grep {/.+/} @CURRENT_STATE{@ORDER});
+        }}
+} catch {
+    $LOG->error($_);
+    die($_);
+};
+
+
+sub load_conf {
+    my $conf_href = shift;
+    my $loaded_conf;
+    local $LOG->context->{conf_parser_params} = $conf_href;
+    try {
+        $loaded_conf = ConfigParser->load($conf_href)
+    } catch {
+        my $msg = 'failed to load config with params:';
+        $LOG->error($msg);
+        die($msg)
+    };
+    return $loaded_conf;
 }
 
 
@@ -64,7 +90,7 @@ sub reaper {
 
 sub get_screen_dimensions {
     my($w, $h) = `xrandr` =~ /connected.*?(\d+)x(\d+)/
-      or croak "Failed to get screen dimensions";
+      or die "Failed to get screen dimensions\n";
     return ($w, $h);
 }
 
@@ -72,12 +98,12 @@ sub get_screen_dimensions {
 sub calculate_y_params {
     my($screen_h) = @_;
 
-    my $bar_extent = $CONFIG->get_param({
-        path     => $COMMAND . '.height',
+    my $bar_extent = $conf_handler->get_param({
+        path     => $LAYOUT_ARG . '.height',
         fallback => 20
     });
 
-    my $bar_pos = substr($COMMAND, 0, 1) eq 'b'
+    my $bar_pos = substr($LAYOUT_ARG, 0, 1) eq 'b'
       ? $screen_h - $bar_extent
       : 0;
 
@@ -88,14 +114,14 @@ sub calculate_y_params {
 sub calculate_x_params {
     my($screen_w) = @_;
 
-    my $x_pos_area = substr($COMMAND, 1, 1);
+    my $x_pos_area = substr($LAYOUT_ARG, 1, 1);
 
     # if center bar does not exist, assume two bar setup
     my $center_bar_extent = (
         $x_pos_area eq 'c'
-        ? $CONFIG->get_param({ path => $COMMAND })
-        : $CONFIG->get_param({
-            path     => substr($COMMAND, 0, 1) . 'c',
+        ? $conf_handler->get_param({ path => $LAYOUT_ARG })
+        : $conf_handler->get_param({
+            path     => substr($LAYOUT_ARG, 0, 1) . 'c',
             fallback => {},
         })
     )->{width} // 0;
@@ -114,7 +140,7 @@ sub calculate_x_params {
 
 sub get_dzen2_options {
     croak "Only composition mode supported"
-      if $CONFIG->get_param({ path => 'mode' }) eq 'composition';
+      if $conf_handler->get_param({ path => 'mode' }) eq 'composition';
 
     my @options;
     my($px_w, $px_h)        = get_screen_dimensions();
@@ -126,22 +152,22 @@ sub get_dzen2_options {
       '-x', $x_pos,
       '-y', $y_pos,
       '-h', $bar_heigth,
-      '-fn', $CONFIG->get_param({ path => $COMMAND . '.font' }),
+      '-fn', $conf_handler->get_param({ path => $LAYOUT_ARG . '.font' }),
 
       '-ta',
-      $CONFIG->get_param({
-        path     => $COMMAND . '.align',
+      $conf_handler->get_param({
+        path     => $LAYOUT_ARG . '.align',
         fallback => 'c'
       }),
 
-      '-bg', $CONFIG->get_param({ path => $COMMAND . '.color.bg' })
+      '-bg', $conf_handler->get_param({ path => $LAYOUT_ARG . '.color.bg' })
       // '#000000',
 
-      '-fg', $CONFIG->get_param({ path => $COMMAND . '.color.fg' })
+      '-fg', $conf_handler->get_param({ path => $LAYOUT_ARG . '.color.fg' })
       // '#FFFFFF';
 
-    push @options, '-dock' if $CONFIG->get_param({
-        path     => $COMMAND . '.is_dock',
+    push @options, '-dock' if $conf_handler->get_param({
+        path     => $LAYOUT_ARG . '.is_dock',
         fallback => 0,
     });
 
@@ -157,7 +183,11 @@ sub run_producer_consumer_pipeline {
     pipe my $dzen2_reader, my $dzen2_writer
       or die "Failed to create dzen2 pipe: $!";
 
-    my @options   = get_dzen2_options();
+    my @options = get_dzen2_options();
+    if ($LOG->is_debug) {
+        $LOG->context->{dzen2_opt} = \@options;
+        $LOG->debug("generated dzen2 configuration for '$LAYOUT_ARG':");
+    }
     my $collector = Daemon->is_myself({
         cmd       => undef,
         src       => $collector_reader,

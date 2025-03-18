@@ -7,18 +7,18 @@ use Carp;
 
 
 sub load {
-    my($class, $path, %opt) = @_;
+    my($class, $opt) = @_;
 
     croak "config path required"
-      unless $path;
+      unless $opt->{path};
     croak "Missing defaults path"
-      unless $opt{defaults};
+      unless $opt->{defaults};
 
-    my $conf = LoadFile($path)
-      or croak "Failed to load config @ $path";
+    my $conf = LoadFile($opt->{path})
+      or croak "Failed to load config @ $opt->{path}";
 
 
-    my($defaults_root, @defaults_rest) = str2keys($opt{defaults});
+    my($defaults_root, @defaults_rest) = str2keys($opt->{defaults});
     my $defaults = $conf->{$defaults_root}
       or croak "Defaults root '$defaults_root' not found in config";
 
@@ -32,7 +32,7 @@ sub load {
                 defaults => $defaults,
                 local    => $conf,
                 select   => (
-                    $opt{base_key} //
+                    $opt->{base_key} //
                       croak 'base_key to use for lookup not set by caller'
                 ),
             }
@@ -43,8 +43,7 @@ sub load {
 
 sub _setup_self {
     my $conf = shift;
-    my(
-        $select,
+    my( $select,
         $defaults,
         $local
     ) = @{ $conf->{raw} }{qw(select defaults local)};
@@ -60,12 +59,12 @@ sub _setup_self {
             default => $defaults->{$select},
           }
     );
-} ## end sub _setup_self
+}
 
 
 sub get_param {
     my($self, $args)     = @_;
-    my($path, $fallback) = @$args{qw(path fallback)};
+    my($path, $fallback) = @{$args}{qw(path fallback)};
 
     croak "path must be set"
       unless defined $path;
@@ -97,7 +96,5 @@ sub xtract_val {
 }
 
 
-sub str2keys {
-    return split /\./, shift // ();
-}
+sub str2keys {return split /\./, shift // ()}
 1;
