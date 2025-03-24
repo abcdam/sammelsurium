@@ -23,6 +23,7 @@ my($TASKS, $LOG, $DAEMON, $LAYOUT_ARG, $conf_handler);
 my $USAGE = "Usage: $0 bl | bc | br";
 croak "$USAGE"
   unless @ARGV == 1;
+
 $LAYOUT_ARG = shift @ARGV;
 croak "Invalid command '$LAYOUT_ARG': $USAGE"
   unless $LAYOUT_ARG =~ /^(bl|bc|br)$/;

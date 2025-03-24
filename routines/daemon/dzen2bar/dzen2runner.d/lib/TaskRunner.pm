@@ -6,10 +6,14 @@ use File::Basename qw(dirname);
 use Cwd qw(abs_path);
 use Path::Tiny;
 use Try::Tiny;
-my $CONFIG_FILE = "/usr/local/etc/dzen2runnerd.yml";
-use lib '/usr/local/lib/dzen2runner.d/lib';
+
+use constant CONFIG_f_PATH => "/usr/local/etc/dzen2runnerd.yml";
+use constant LIB_DIR       => '/usr/local/lib/dzen2runner.d/lib';
+use lib LIB_DIR;
+
 use MonoLog;
 use ConfigParser;
+
 my @OUTPUT_TOKENS = qw(sep label value);
 
 
@@ -29,31 +33,32 @@ my %is_implemented = map {$_ => 1} qw(
 
 sub init {
     my($class, $caller) = (shift, lc caller);
-    my $self = { log => MonoLog::init_logger() };
+    croak "Implementation for '$caller' not registered in TaskRunner."
+      unless $is_implemented{$caller};
+    my $id   = $caller;
+    my $self = { log => MonoLog::init_logger({ tag => $id }) };
     try {
-        croak "Implementation for '$caller' not registered in TaskRunner."
-          unless $is_implemented{$caller};
-        my $CONFIG = ConfigParser->load({
-            path     => $CONFIG_FILE,
+        my $conf_handler = ConfigParser->load({
+            path     => CONFIG_f_PATH,
             defaults => 'defaults',
             base_key => 'scraper'
         });
-
         (
             $self = {
                 %{$self},
-                %{ $CONFIG->get_param({ path => $caller }) }
+                %{ $conf_handler->get_param({ path => $id }) }
               }
-              // croak "Failed to get config for $caller in TaskRunner"
-        )->{id} //= $caller;
-
+              // croak "Failed to get config for '$id' in TaskRunner"
+        )->{id} //= $id;
+        my $conf_defaults = $conf_handler->get_param({ path => '.' });
         (bless $self, $class)
-          ->_merge_missing_values($self, $CONFIG->get_param({ path => '.' }))
+          ->_supplement_missing_configs($self, $conf_defaults)
           ->_setup_token_handler;
     } catch {
-        $self->{log}->error($_);
-        croak "error in TaskRunner init: $_";
+        my $m = "TaskRunner init failed: $_";
+        _logErr($self, $m) and die $m;
     };
+
     return $self;
 } ## end sub init
 
@@ -61,12 +66,8 @@ sub init {
 sub run_loop {
     my $self = shift;
     try {do {$self->fetch_update} while $self->consume_and_sleep}
-    catch {
-        $self->{log}->error("$self->{id}: $_")
-          and die sprintf
-          '%s: %s\n'
-          , $self->{id}, $_;
-    }}
+    catch {my $m = $_; $self->{log}->error($m) and die $m}
+}
 
 
 sub fetch_update {die 'fetch_update() must be defined in task implementation\n'}
@@ -79,8 +80,7 @@ sub consume_and_sleep {
       $self->{self_tag},
       delete $self->{buffer_out}
 
-      and
-      sleep $self->{interval};
+      and sleep $self->{interval};
 }
 
 
@@ -114,54 +114,48 @@ sub _setup_token_handler {
 sub append_tokens {
     my($self, $token_list) = @_;
     (   $self->_tkn_input_sanity_check($_)
-          and $self->{token_handler}{ $_->{token_id} }
-          or croak sprintf q(token '%s' does not exist), $_->{token_id}
-      )->($_->{token_value}) for
-      map {    # switcheroo 1<->2 to get correct hash layout
+          and $self->{token_handler}{ $_->{token_id} } or do {
+            my $m = "token '$_->{token_id}' is not valid";
+            $self->_logErr($m, $token_list) and die $m;
+          }
+    )->($_->{token_value}) for map {
+
+        # switcheroo 1<->2 to get correct hash layout
         {('token_id', 'token_value', %{$_})[ 0, 2, 1, 3 ]}
-      } @{$token_list};
+    } @{$token_list};
 }
 
 
 sub colorify_entry {
     my($self, $arg) = @_;
-    local $self->{log}->context->{arg} = $arg;
-    if (my @param =
-        @{$arg}{qw(color string)}
-    ) {
-        croak 'Malformed  argument. Expected 2 defined k/v pairs'
-          unless 2 == @param
-          and
-          return sprintf '^fg(%s)%s^fg()'
-          , @param;
+    my @params = @{$arg}{qw(color string)};
+    unless (2 == grep {defined} @params) {
+        my $m = q(Expected defined values for 'color' and 'string');
+        $self->_logErr($m, $arg) and die $m;
     }
-    die 'No args passed to colorify_entry()\n';
+    return sprintf '^fg(%s)%s^fg()'
+      , @params;
 }
 
 
 sub _tkn_input_sanity_check {
     my($self, $input) = @_;
-    if (2 == (
-            my($tkn, $val) =
-              @{$input}{qw(token_id token_value)}
-        ))
-    {   $self->{log}->warn(
+    my @tkn_id_val = @{$input}{qw(token_id token_value)};
+    if (2 == grep {defined} @tkn_id_val) {
+        $self->{log}->warn(
             sprintf q(%s '%s:%s' %s)
             , 'Detected more than 1 token id. Proceeding with'
-            , $tkn, $val
+            , @tkn_id_val
             , 'and discarding the rest'
-        ) unless 2 == keys %$input;
-        return 1;
+        ) unless 2 == keys %{$input};
+        return 1 == 1;
     }
-    die sprintf '%s %s %s\n'
-      , 'Unexpected Input.'
-      , 'Expected a single token_id/token_value pair but found:'
-      , join ','
-      , grep {! /^(token_id|token_value)$/} %{$input};
-} ## end sub _tkn_input_sanity_check
+    my $m = 'Expected a single id/value pair after token normalization';
+    $self->_logErr($m, $input) and die $m;
+}
 
 
-sub _merge_missing_values {
+sub _supplement_missing_configs {
     my($self, $target, $source) = @_;
 
     for my $key (keys %$source) {
@@ -169,9 +163,17 @@ sub _merge_missing_values {
             && ref $target->{$key} eq 'HASH'
             && ref $source->{$key} eq 'HASH'
           )
-        {$self->_merge_missing_values($target->{$key}, $source->{$key})}
+        {$self->_supplement_missing_configs($target->{$key}, $source->{$key})}
         else {$target->{$key} //= $source->{$key}}
     }
     return $self;
+}
+
+
+sub _logErr {
+    my($self, $msg, $ctxt) = @_;
+    local $self->{log}->context->{ctxt} = $ctxt
+      unless ! $ctxt;
+    $self->{log}->error($msg);
 }
 1;
