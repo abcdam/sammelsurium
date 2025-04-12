@@ -7,8 +7,11 @@ use JSON::PP;
 #
 my $JSON     = JSON::PP->new->utf8->pretty->relaxed;
 my @HANDLERS = ({
-    class_pattern => qr/^\^VSCodium\$$/i,
-    handler       => \&set_codium_title_pattern,
+    pattern => {
+        class => qr/^\^VSCodium\$$/i
+      }
+    ,
+    handler => \&set_codium_title_pattern,
 });
 ### end section CONFIG
 
@@ -40,9 +43,7 @@ say join "\n"
 sub preprocess {
     my($content) = @_;
 
-    my %requires_window_role = (
-        'Chromium' => 1,
-    );
+    my $requires_window_role = qr|^Chromium|;
 
     my $shared_pattern = {
         leading  => qr(\s*//\s*),
@@ -68,7 +69,7 @@ sub preprocess {
       die "regex bug while parsing list: $list" unless $class;
 
 
-      if($requires_window_role{$class}){
+      if($class =~ $requires_window_role){
         $list =~ s{
           ^$shared_pattern->{leading}
           (
@@ -102,7 +103,7 @@ sub process_window_leaf {
     my $swallows_href = $window->{swallows}[0];
     for (@HANDLERS) {
         $_->{handler}->($window, $swallows_href)
-          if $swallows_href->{class} =~ $_->{class_pattern};
+          if $swallows_href->{class} =~ $_->{pattern}{class};
     }
     return;
 }
@@ -111,10 +112,9 @@ sub process_window_leaf {
 sub set_codium_title_pattern {
     my($codium_window, $swallows_href) = @_;
     ($swallows_href->{title})
-      = (    # extract everything after the name of last edited file
-        sprintf '%s$'
-        , ($codium_window->{name} =~ /.*?-(.*)/)[0]
-      ) =~ s/-/\\-/gr;    # explicitly escape dashes for readability
+      = quotemeta(    # extract everything after the name of last edited file
+        ($codium_window->{name} =~ /.*?-(.*)/)[0]
+      ) . '$' =~ s/\//\/\//gr;    # escape meta chars again to reduce ambiguity
     return;
 }
 ### end section FUN
