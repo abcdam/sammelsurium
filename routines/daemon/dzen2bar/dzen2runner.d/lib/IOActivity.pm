@@ -1,6 +1,11 @@
 package IOActivity;
 use v5.36.0;
-my @UNITS = qw(Bs Ks Ms Gs);
+my %UNIT_2_SEP;
+my @UNITS = qw(Bs KiBs MiBs GiBs TiBs);
+
+# https://www.compart.com/en/unicode/U+259D
+my @SEP_UNIC = map {chr $_} (0x259D, 0x2590, 0x259F, 0x2588);
+@UNIT_2_SEP{ @UNITS[ 1 .. $#UNITS ] } = @SEP_UNIC;
 use constant KIBI => 1024;
 
 
@@ -8,37 +13,45 @@ sub _fetch_IO_update {
     my($self, $curr_stats) = @_;
 
     for my $dev (sort keys %{$curr_stats}) {
-        my $io_loads = $self->_calc_io_loads($dev, $curr_stats);
-        $self->append_tokens([ { label => $self->{device_map}{$dev} } ]);
-        $self->_append_io_tokens({
-            map {
-                $_ => $self->to_unit_value_map({
-                    load   => $io_loads->{$_},
-                    l_just => ($_ eq 'out' ? 1 : 0)
-                })
-            } keys %$io_loads
-        });
+        my($IN_str, $OUT_str) = map {
+            to_stringified_value_fmt($_)
+          } @{
+            $self->_calc_io_loads_averaged($dev, $curr_stats)
+          }{qw(in out)};
+        $self->append_tokens([
+            { label => $self->{device_map}{$dev} },
+            { value => $IN_str },
+            { sep   => ':' },
+            { value => $OUT_str }
+        ]);
     }
     $self->{prev_stats} = $curr_stats;
 }
 
-
-sub to_unit_value_map {
-    my($self, $arg) = @_;
+# approp. unit of calc. value is derived implicitly from separator
+# [0     B/s - 10B/s[     -> displayed as 000d
+# [0.01KiB/s - 10KiB/s[   -> displayed as d▝dd
+# [0.01MiB/s - 10MiB/s[   -> displayed as d▐dd
+# [0.01GiB/s - 10GiB/s[   -> displayed as d▟dd
+# [0.01TiB/s - 10TiB/s[   -> displayed as d█dd
+sub to_stringified_value_fmt {
+    my $load = shift;
     for (@UNITS) {
-        ($arg->{load} >= KIBI)
-          and $arg->{load} /= KIBI
-          or return {
-            unit  => $_,
-            value =>
-              sprintf '%' . ($arg->{l_just} ? '-' : '') . '3.0f'
-            , $arg->{load}
-          };
+        ($load >= 10)
+          and $load /= KIBI
+          or return (
+            sprintf '%' . (
+                ! exists $UNIT_2_SEP{$_}
+                ? '04d'
+                : '.2f'
+              )
+            , $load
+          ) =~ s/\./$UNIT_2_SEP{$_}/r;
     }}
 
 # returns hashref of in-& output loads averaged over configured interval
 # shape: {in|out => average_load(device_id)}
-sub _calc_io_loads {
+sub _calc_io_loads_averaged {
     my($self, $dev_key, $curr_stats) = @_;
     return {
         map {
@@ -48,20 +61,6 @@ sub _calc_io_loads {
             ) / $self->{interval}
         } qw(in out)
     }
-}
-
-
-sub _append_io_tokens {
-    my($self, $disp_fmt) = @_;
-    my @seps = qw([ : ] :);
-    $self->append_tokens([
-        map {(
-            { sep   => shift @seps },
-            { value => $disp_fmt->{in}{$_} },
-            { sep   => shift @seps },
-            { value => $disp_fmt->{out}{$_} }
-        )} qw(unit value)
-    ]);
 }
 
 

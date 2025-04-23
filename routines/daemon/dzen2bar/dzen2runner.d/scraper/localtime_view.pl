@@ -27,9 +27,9 @@ sub fetch_update {
       $days[$wday], $hour, $min, $sec, $mon + 1, $mday;
 
     $self->append_tokens([
-        { sep   => '~ ' },
+        { sep   => "\x{00AB}" },
         { value => $update },
-        { sep   => ' ∽' }
+        { sep   => "\x{00BB}" }
     ]);
 }
 

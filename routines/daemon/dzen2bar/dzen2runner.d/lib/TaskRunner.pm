@@ -6,6 +6,7 @@ use File::Basename qw(dirname);
 use Cwd qw(abs_path);
 use Path::Tiny;
 use Try::Tiny;
+use open ':std', ':encoding(UTF-8)';
 
 use constant CONFIG_f_PATH => "/usr/local/etc/dzen2runnerd.yml";
 use constant LIB_DIR       => '/usr/local/lib/dzen2runner.d/lib';

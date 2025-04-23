@@ -46,8 +46,8 @@ sub _update_cpu_freq {
         { label => 'ghz' },
         { sep   => '@' },
         {
-            value => sprintf '%.1f ',
-            $freqs_sum / scalar @{ $self->{last_5_freqs} }
+            value => sprintf '%.1f '
+            , $freqs_sum / scalar @{ $self->{last_5_freqs} }
         },
       ];
 } ## end sub _update_cpu_freq
@@ -59,7 +59,8 @@ sub _update_alloc_times {
     my $curr_alloc_times  = _get_cpu_fields();
     my @state_alloc_prcts = _calculate_percentages([
         map {
-            $curr_alloc_times->[$_] - $self->{prev_alloc_times}->[$_] // 0
+            $curr_alloc_times->[$_]
+              - ($self->{prev_alloc_times}->[$_] // 0)
         } 0 .. $#$curr_alloc_times
     ]);
     $self->{prev_alloc_times} = $curr_alloc_times;
@@ -67,20 +68,16 @@ sub _update_alloc_times {
         map {(
             { label => $_ },
             { sep   => '%' },
-            {
-                value => sprintf '%s ',
-                shift @state_alloc_prcts
-            }
+            { value => shift @state_alloc_prcts }
         )} qw(usr nice sys idl iozz hirq sirq)
     ];
-} ## end sub _update_alloc_times
+}
 
 
 sub _get_avg_freq {
     my $freqs = 0;
     $freqs += $_ for map {
-        (   Path::Tiny::path($_)->lines({ chomp => 1, count => 1 })
-        )[0]
+        (Path::Tiny::path($_)->lines({ chomp => 1, count => 1 }))[0]
     } @PATHS;
     return sprintf "%.2f"
       , $freqs / (GHz * scalar @PATHS);
@@ -92,14 +89,17 @@ sub _get_cpu_fields {
     return [ (split /\s+/, $cpu_line)[ 1 .. 7 ] ];
 }
 
-
+# if an averaged value hits 1, it's represented as +0.0 to avoid layout shifts
+# -> output value always has a width of 4 chars
 sub _calculate_percentages {
-    my $delta      = shift;
-    my $total_time = 0;
-    $total_time += $_ for @{$delta};
-    return map {
-        sprintf '%.1f'
-          , 100 * $_ / $total_time
+    my($delta, $epsilon_pct) = @_;
+    $epsilon_pct //= 0.05;
+    my $scale = 100 / do {my $s = 0; $s += $_ for @{$delta}; $s};
+    map {
+        my $pct = $_ * $scale;
+        ($pct + $epsilon_pct) < 100
+          ? sprintf '%04.1f', $pct
+          : '+0.0';
     } @{$delta};
 }
 

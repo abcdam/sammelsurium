@@ -7,6 +7,7 @@ use POSIX qw(strftime WNOHANG);
 use Carp;
 use File::Basename;
 use Try::Tiny;
+use open ':std', ':encoding(UTF-8)';
 
 use constant LIB_DIR     => '/usr/local/lib/dzen2runner.d/lib';
 use constant CONF_f_Path => "/usr/local/etc/dzen2runnerd.yml";
@@ -28,7 +29,6 @@ $LAYOUT_ARG = shift @ARGV;
 croak "Invalid command '$LAYOUT_ARG': $USAGE"
   unless $LAYOUT_ARG =~ /^(bl|bc|br)$/;
 ##
-
 
 $LOG = MonoLog::init_logger(
     { tag => (sprintf '%s:%s', basename($0), $LAYOUT_ARG) });
@@ -60,7 +60,7 @@ try {
             next
               if $_ eq $CURRENT_STATE{$1};
             $CURRENT_STATE{$1} = $_;
-            say(join '‖ ', grep {/.+/} @CURRENT_STATE{@ORDER});
+            say(join "\x{2595}\x{258F}", grep {/.+/} @CURRENT_STATE{@ORDER});
         }}
 } catch {
     $LOG->error($_);
@@ -104,7 +104,7 @@ sub calculate_y_params {
         fallback => 20
     });
 
-    my $bar_pos = substr($LAYOUT_ARG, 0, 1) eq 'b'
+    my $bar_pos = 'b' eq substr($LAYOUT_ARG, 0, 1)
       ? $screen_h - $bar_extent
       : 0;
 
