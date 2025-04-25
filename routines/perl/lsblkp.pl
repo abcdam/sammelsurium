@@ -9,7 +9,7 @@ my %PATTERN = (
     vals => qr/"(.*?)"/
 );
 
-# these entries, if present, must be casted to human readable fmt
+# these entries, if present, will be casted to human readable fmt
 my @RAW_BYTES_KEY_REG = qw(SIZE FSSIZE FSUSED);
 
 # numeric strings aligned to the right
@@ -21,24 +21,24 @@ my %IS_RIGHT_JUSTIFIED = map {$_ => 1} (qw(FSUSE%), @RAW_BYTES_KEY_REG);
 ## section MAIN
 #
 chomp(my @raw_lsblk = <STDIN>);
-my @ordered_keylist_src    = $raw_lsblk[0] =~ /$PATTERN{keys}/g;
-my %max_char_count         = map {$_ => length $_} @ordered_keylist_src;
-my %is_available_bytes_key = %max_char_count{@RAW_BYTES_KEY_REG};
-my @available_bytes_keys   = keys %is_available_bytes_key;
-my %state                  = (
-    raw_input              => \@raw_lsblk,
-    header_titles          => \@ordered_keylist_src,
-    longest_strings        => \%max_char_count,
-    is_available_bytes_key => \%is_available_bytes_key,
-    available_bytes_keys   => [ keys %is_available_bytes_key ]
-);
+my %state = (raw_input => \@raw_lsblk);
+
+$state{header_titles}
+  = [ $raw_lsblk[0] =~ /$PATTERN{keys}/g ];
+$state{longest_strings}
+  = { map {$_ => length $_} @{ $state{header_titles} } };
+$state{is_available_bytes_key}
+  = { %{ $state{longest_strings} }{@RAW_BYTES_KEY_REG} };
+$state{available_bytes_keys}
+  = [ keys %{ $state{is_available_bytes_key} } ];
+
 
 my $content_rows = [ preproc_lsblk(\%state) ];
-++$_ for values %max_char_count;    # default extra space for all columns
+++$_ for    # each column width
+  values %{ $state{longest_strings} };
 
-# additional spacing to accomodate unit
-$_ += 3 for
-  @max_char_count{@available_bytes_keys};
+$_ += 3 for    #each column width containing human readable byte values
+  @{ $state{longest_strings} }{ @{ $state{available_bytes_keys} } };
 
 print_fmt({
     headers => $state{header_titles},
@@ -81,19 +81,20 @@ sub print_fmt {
     my $data = shift;
 
     my $fstr = ' ';
-    $fstr
-      .= '%'
+    $fstr .= '%'
       . ($IS_RIGHT_JUSTIFIED{$_} ? '' : '-')
       . $data->{longest_strings}{$_}
       . 's'
-
       for @{ $data->{headers} };
-    my $fstr_aio = join "\n"
+
+    my $fstr_single_pass = join "\n"
       , ($fstr) x (1 + @{ $data->{rows} });
 
-    say sprintf $fstr_aio
+    say sprintf $fstr_single_pass
       , map {
-        $data->{is_available_bytes_key}{$_} ? $_ . '[G]' : $_
+        $data->{is_available_bytes_key}{$_}
+          ? $_ . '[G]'
+          : $_
       } @{ $data->{headers} }
       , map {
         @{$_}{ @{ $data->{headers} } }
