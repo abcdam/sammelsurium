@@ -60,7 +60,7 @@ infoline() {
 
 throw() {
     ramble "$(hue "[FATAL] $1" r b)" >&2
-    sigfile="$(get_sigfile_p)" || exit ${2-1}
+    sigfile="$(get_sigfile_p)" 2>/dev/null || exit ${2-1}
     printf '%d' "${2-1}" > "$sigfile"
 }
 
