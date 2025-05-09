@@ -54,7 +54,7 @@ statusline() {
 
 # shortcut for a state independent `statusline && status_info`. Useful for state transitions
 infoline() {
-    statusline     "$1" "indent_off"
+    statusline      "$1" "indent_off"
     status_info     "$2"
 }
 
