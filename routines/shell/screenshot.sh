@@ -31,7 +31,7 @@ add_exitrap "rm -f '$tmp_img_f' '$tmp_err_f'"
 # --noopengl: suppress "failed to detect a compositor" opengl warning
 maim --noopengl --format png --select >"$tmp_img_f" 2>"$tmp_err_f" || ex_code=$?
 if ! [ "${ex_code:-0}" -eq 0 ]; then
-  if err_msg="$(grep --quiet --invert-match 'Selection was cancelled by keystroke' "$tmp_err_f")"; then
+  if err_msg="$(grep --invert-match 'Selection was cancelled by keystroke' "$tmp_err_f")"; then
     throw "maim failed: $err_msg" "$ex_code"
   else exit 0
   fi
