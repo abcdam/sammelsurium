@@ -13,6 +13,10 @@ pub enum CommonError {
 
     #[error("Failed config validation: {0}")]
     Validation(String),
+
+    /// catchall error for unexpected failures
+    #[error("Unexpected error occurred: {0}")]
+    Unexpected(&'static str),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
