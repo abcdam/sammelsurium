@@ -1,15 +1,24 @@
 use crate::{
-    CommandRunner,
+    CommandRunner, FromPubCfg,
     common::{CommonError, RepoEntry, RepoMetadata},
-    init,
+    impl_validated_try_from,
+    init::{self, HasCommonOpts},
 };
 use clap::Args;
 use futures::{StreamExt, stream::FuturesUnordered};
 use regex::Regex;
 use reqwest::{Client, Response};
-use std::{collections::BTreeMap, path::PathBuf, pin::Pin, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    path::PathBuf,
+    pin::Pin,
+    sync::{Arc, LazyLock},
+};
 use thiserror::Error as ThisError;
 
+const RE_LAST_PAGE_IDX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"page=(?<last_idx>\d+)>;\s*rel="last""#).unwrap()
+});
 #[derive(ThisError, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -30,7 +39,30 @@ pub enum Error {
     #[error("ParseInt error: {0}")]
     Parse(#[from] std::num::ParseIntError),
 }
-type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Args, Debug)]
+pub struct PubConfig {
+    #[clap(flatten)]
+    pub common: init::CommonOpts,
+    pub user_id: String,
+}
+
+impl HasCommonOpts for PubConfig {
+    fn common(&self) -> &init::CommonOpts {
+        &self.common
+    }
+}
+pub struct RunConfig {
+    user_id: String,
+    cache_dir: PathBuf,
+}
+pub struct Runner;
+
+struct RepoFetcher {
+    client: Arc<Client>,
+    base_url: String,
+}
+
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         if let Some(response_code) = e.status() {
@@ -46,25 +78,9 @@ impl From<reqwest::Error> for Error {
     }
 }
 
-#[derive(Args, Debug)]
-pub struct PubConfig {
-    #[clap(flatten)]
-    pub common: init::CommonOpts,
-    pub user_id: String,
-}
-
-pub struct RunConfig {
-    user_id: String,
-    cache_dir: PathBuf,
-}
-
-pub struct Runner;
-
-struct RepoFetcher {
-    client: Arc<Client>,
-    base_url: String,
-}
 type RepoBatchFuture = Pin<Box<dyn Future<Output = Result<Vec<RepoEntry>>>>>;
+type Result<T> = std::result::Result<T, Error>;
+
 impl RepoFetcher {
     fn new(client: Client, username: &str, results_per_page: u8) -> Self {
         RepoFetcher {
@@ -75,28 +91,30 @@ impl RepoFetcher {
         }
     }
 
-    fn extract_last_page(response: &Response) -> Result<usize> {
-        let link_header = response
+    fn extract_last_page_idx(&self, response: &Response) -> Result<usize> {
+        let Some(link_val) = response
             .headers()
             .get(reqwest::header::LINK)
-            .and_then(|h| h.to_str().ok())
-            .ok_or_else(|| {
-                CommonError::Unexpected("Missing LINK entry in response header")
-            })?;
-
-        let num_fetchable_pages: usize =
-            Regex::new(r#"page=(?<last_idx>\d+)>;\s*rel="last""#)?
-                .captures(link_header)
-                .ok_or(CommonError::Unexpected(
-                    "Failed to extract last page number",
-                ))?
+        else {
+            return Ok(1); // valid gh response has no LINK value if only one page is available
+        };
+        let link_val = link_val.to_str().map_err(|e| {
+            CommonError::Validation(format!(
+                "Invalid Link header encoding: {e}"
+            ))
+        })?;
+        let last_page_idx = match RE_LAST_PAGE_IDX.captures(link_val) {
+            Some(captured) => captured
                 .name("last_idx")
-                .ok_or(CommonError::Unexpected(
-                    "Empty 'last_idx' capture group",
-                ))?
-                .as_str()
-                .parse()?;
-        Ok(num_fetchable_pages)
+                .ok_or_else(|| {
+                    CommonError::Unexpected(
+                        "Link header has no last page number",
+                    )
+                })?
+                .as_str(),
+            _ => return Ok(1),
+        };
+        Ok(last_page_idx.parse()?)
     }
 
     async fn fetch_url(&self, page_num: usize) -> Result<Response> {
@@ -113,7 +131,7 @@ impl RepoFetcher {
         self,
     ) -> Result<impl Iterator<Item = RepoBatchFuture>> {
         let initial_response = self.fetch_url(1).await?;
-        let last_page_idx = Self::extract_last_page(&initial_response)?;
+        let last_page_idx = self.extract_last_page_idx(&initial_response)?;
 
         let initial_response_body = initial_response.text().await?;
         let initial_entries: Vec<RepoEntry> =
@@ -167,22 +185,10 @@ fn fetch_starred_repos(
     })
 }
 
-impl TryFrom<PubConfig> for RunConfig {
+impl FromPubCfg<PubConfig> for RunConfig {
     type Error = Error;
-
-    fn try_from(cfg: PubConfig) -> Result<Self> {
-        let cache_dir = cfg
-            .common
-            .cache_dir
-            .ok_or(CommonError::Validation(
-                "cache dir value not set".into(),
-            ))?;
-        if !cache_dir.is_dir() {
-            return Err(CommonError::Validation(format!(
-                "path '{}' not a directory",
-                cache_dir.display()
-            )))?;
-        }
+    fn validate_from_pub(cfg: PubConfig) -> Result<Self> {
+        let cache_dir = cfg.common.cache_dir.unwrap();
         let user_id = cfg.user_id;
         if user_id.is_empty() {
             return Err(CommonError::Validation(
@@ -193,6 +199,8 @@ impl TryFrom<PubConfig> for RunConfig {
         Ok(RunConfig { user_id, cache_dir })
     }
 }
+
+impl_validated_try_from!(PubConfig, RunConfig);
 
 impl CommandRunner for Runner {
     type PubConfig = PubConfig;

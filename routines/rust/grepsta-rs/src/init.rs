@@ -21,6 +21,10 @@ pub struct CommonOpts {
     pub cache_dir: Option<PathBuf>,
 }
 
+pub trait HasCommonOpts {
+    fn common(&self) -> &CommonOpts;
+}
+
 // impl Default for GlobalConfig {
 //     fn default() -> Self {
 //         GlobalConfig {

@@ -1,6 +1,7 @@
 use crate::{
-    CommandRunner,
+    CommandRunner, FromPubCfg,
     common::{CommonError, RepoEntry, RepoMetadata},
+    impl_validated_try_from, init,
 };
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 
@@ -12,6 +13,12 @@ use clap::Args;
 pub struct PubConfig {
     #[clap(flatten)]
     pub common: crate::init::CommonOpts,
+}
+
+impl init::HasCommonOpts for PubConfig {
+    fn common(&self) -> &init::CommonOpts {
+        &self.common
+    }
 }
 
 pub struct RunConfig {
@@ -26,25 +33,17 @@ pub enum Error {
     Common(#[from] CommonError),
 }
 
-impl TryFrom<PubConfig> for RunConfig {
+impl FromPubCfg<PubConfig> for RunConfig {
     type Error = Error;
 
-    fn try_from(cfg: PubConfig) -> Result<Self, Error> {
-        let cache_dir = cfg
-            .common
-            .cache_dir
-            .ok_or(CommonError::Validation(
-                "cache dir value not set".into(),
-            ))?;
-        if !cache_dir.is_dir() {
-            return Err(CommonError::Validation(format!(
-                "path to cache is not a dir"
-            )))?;
-        }
-
-        Ok(RunConfig { cache_dir })
+    fn validate_from_pub(cfg: PubConfig) -> Result<Self, Error> {
+        Ok(RunConfig {
+            cache_dir: cfg.common.cache_dir.unwrap(),
+        })
     }
 }
+
+impl_validated_try_from!(PubConfig, RunConfig);
 
 impl CommandRunner for Runner {
     type PubConfig = PubConfig;
