@@ -1,7 +1,7 @@
 
 _parse_hue_opt() {
-    case "$1" in
-        ""|n)   printf '0';;
+    case "${1:?"_parse_hue_opt requires param to be set"}" in
+        n)      printf '0';;
         b)      printf '1';;
         f)      printf '2';;
         i)      printf '3';;
@@ -38,7 +38,7 @@ _parse_hue_color() {
 # _option (default (n)ormal): (n)ormal, (b)old, (f)aint, (i)talics, (u)nderlined
 #
 hue() {
-    [ -z "$1" ] && printf "Error: missing 1st positional argument (target text) in hue() params .\n" >&2 && exit 1
+    [ -z "$1" ] && printf "Error: missing 1st positional argument (target text) in hue() params.\n" >&2 && exit 1
     _hue_color="$(_parse_hue_color "${2:-}")"
     _hue_opt="$(_parse_hue_opt "${3:-}")"
     RESET='\033[0m'
