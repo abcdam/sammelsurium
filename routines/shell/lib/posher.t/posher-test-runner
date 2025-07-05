@@ -2,35 +2,55 @@
 # @abcdam
 # 25/07
 
+cat <<'EOF'
+  .   .         .            .                    .      .            .       . 
+ * .         .        +   .     +   .  *   *    .      .      +      .    *     
+    *   .  * .   . * .  .    .   +   . ..   +   . . +   .    .    .          +  
+  . + *  :* + :  + . .  .*+.++      : #     .    * * .   + .  :* +  .  *+   .   
+ . * +   : #*#.*      *.*:+._________*.*___  ___ :#*       .: *.# *    *    #  .
++*: ________*.# ________:**|\   _____\*|\  \|\  \#.*#________#.+*________+# # :*
+#*+|\   __  \ +|\   __  \+*\ \  \TTTT|*\ \  \_\  \*+|\   ____\+*|\   __  \+#*+*+
+#@#\ \  \T\  \*\ \  \T\  \#+\ \_____  \*\ \   __  \#\ \  \TTT|*#\ \  \T\  \##*##
+@#+*\ \   ____\#\ \  \ \  \#+\|____|\  \+\ \  \ \  \+\ \  \___\#+\ \   _  /#@###
+#@##+\ \  \___|+*\ \  \_\  \+|\_________\#\ \__\ \__\#\ \  \TT|__W\ \  \\ \#@##@
+@#@###\ \  \WW+W#+\ \_______\\|_________|W#\|__|\|__|##\ \_______\#\ \__\\ \_#@#
+WW@@W##|\___\@@W@W#\|_______|WWWWWWWW@@WWWWW@WWWWW@W@#WW\|_______|#@\|__| \__\W@
+WW@##@W\|___|#W@@@@W#WWW###WWW#WW@@@@WWWWW###WWWWW#@@@##W#@##WWWW##@@@@#W\|__|@W
+WW@@WWW@@W@W@W@@@WW@@@W@W@W@@@W@@@WW@W@W@@@W@W@W@W@WW@W@W@@@W@W@W@W@WW@@WW@@@WWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+EOF
+
+. $(get-posher)
 
 
- printf '%s\n' '  .   .         .            .                    .      .            .       .'
- printf '%s\n' ' * .         .        +   .     +   .  *   *    .      .      +      .    *     '
- printf '%s\n' '    *   .  * .   . * .  .    .   +   . ..   +   . . +   .    .    .          +  '
- printf '%s\n' '  . + *  :* + :  + . .  .*+.++      : #     .    * * .   + .  :* +  .  *+   .   '
- printf '%s\n' ' . * +   : #*#.*      *.*:+._________*.*___  ___ :#*       .: *.# *    *    #  .'
- printf '%s\n' '+*: ________*.# ________:**|\   _____\*|\  \|\  \#.*#________#.+*________+# # :*'
- printf '%s\n' '#*+|\   __  \ +|\   __  \+*\ \  \TTTT|*\ \  \_\  \*+|\   ____\+*|\   __  \+#*+*+'
- printf '%s\n' '#@#\ \  \T\  \*\ \  \T\  \#+\ \_____  \*\ \   __  \#\ \  \TTT|*#\ \  \T\  \##*##'
- printf '%s\n' '@#+*\ \   ____\#\ \  \ \  \#+\|____|\  \+\ \  \ \  \+\ \  \___\#+\ \   _  /#@###'
- printf '%s\n' '#@##+\ \  \___|+*\ \  \_\  \+|\_________\#\ \__\ \__\#\ \  \TT|__W\ \  \\ \#@##@'
- printf '%s\n' '@#@###\ \  \WW+W#+\ \_______\\|_________|W#\|__|\|__|##\ \_______\#\ \__\\ \_#@#'
- printf '%s\n' 'WW@@W##|\___\@@W@W#\|_______|WWWWWWWW@@WWWWW@WWWWW@W@#WW\|_______|#@\|__| \__\W@'
- printf '%s\n' 'WW@##@W\|___|#W@@@@W#WWW###WWW#WW@@@@WWWWW###WWWWW#@@@##W#@##WWWW##@@@@#W\|__|@W'
- printf '%s\n' 'WW@@WWW@@W@W@W@@@WW@@@W@W@W@@@W@@@WW@W@W@@@W@W@W@W@WW@W@W@@@W@W@W@W@WW@@WW@@@WWW'
- printf '%s\n' 'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW'
- printf '%s\n' 'TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT'
- . $(get-posher)
+printf '%s\n' \
+  '                                                                               |' \
+  '                               TEST SUITE RUNNER                               |' \
+  '                                                                               |' \
+  '==================================================================..v0.0.0..===o' \
+  '                                                                               /' \
+####
+####
+( . tests/color-util.test.sh
+  printf '%s\n' \
+  '=======================================================..color-util..tests..==o-' \
+  '                                                                              / ' \
+  '==--==--==--==--==--==--==--==--==--==--==--..test_parse_ANSI_style_opt..--==o--' \
+  '                                                                             |  '
+        test_parse_ANSI_style_opt
 
+  printf '%s\n' \
+  '                                                                             |  ' \
+  '==--==--==--==--==--==--==--==--==--==--==--==--..test_parse_ANSI_color..--==o--' \
+  '                                                                             |  '
+        test_parse_ANSI_color
+  
+  printf '%s\n' \
+  '                                                                              \ ' \
+  '===================================================DONE..color-util..tests..==o-' \
+  '                                                                               \' \
+) ## END color-util.test.sh
 
-#  printf '\n%s\n'  '================================================================================'
- printf '\n%s\n\n'    '====..TEST.SUITE.RUNNER..=========================================..v0.0.0..===='
-
-
-
-
-(
-printf '%s\n'    '=======================================================..color-util..tests..===='
-  . tests/color-util.test.sh
-  test_parse_hue_opt
-)
+printf '%s\n' \
+  '=========================================================..TESTS..FINISHED..===o'

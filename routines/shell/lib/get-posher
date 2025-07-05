@@ -17,6 +17,8 @@ _POSHER_RUNTIME_D="/tmp/posher.d/$$"
 export _POSHER_CTXT_STATE="${_POSHER_CTXT_STATE:-}"
 export POSHER_LIB_DIR='/usr/local/lib/posher.d'
 
+export __POSHER_ERR_MSG_PREFIX="[\033[1;31mFATAL\033[0m]"
+
 abs_path() {
   curr_path="$1"
   while [ -L "$curr_path" ]; do
@@ -31,6 +33,29 @@ abs_path() {
 
 is_cmd_available() {
   command -v "${1:-}" > /dev/null
+}
+
+# TODO docs
+is_param_set() {
+  param_to_check="${1:-}"
+  mode="${2:-lax}"
+  retval="${3:-64}"
+  err_msg="${4:-'is_param_set(): got unset/null param in strict mode'}"
+
+  case "$mode" in
+    lax) [ -n "${param_to_check:-}" ] && retval=0 
+      ;;
+    strict) ${param_to_check:?"$__POSHER_ERR_MSG_PREFIX $err_msg"} && retval=0
+      ;;
+    *) 
+  fmt="$__POSHER_ERR_MSG_PREFIX is_param_set(): wrong mode. (expected: {lax|strict} - got: %s)"
+      printf "$fmt\n" "$mode" >&2
+      exit 64
+      ;;
+  esac
+
+  unset param_to_check mode err_msg
+  return $retval
 }
 
 # to register actions in exit trap cmd "queue", pass them as a single string in
