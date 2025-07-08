@@ -76,12 +76,14 @@ sub fetch_update {die 'fetch_update() must be defined in task implementation\n'}
 
 sub consume_and_sleep {
     my $self = shift;
-    say sprintf
-      '%s%s',
-      $self->{self_tag},
-      delete $self->{buffer_out}
 
-      and sleep $self->{interval};
+    if (length $self->{buffer_out}) {
+        say sprintf
+          '%s%s',
+          $self->{self_tag},
+          delete $self->{buffer_out}
+    }
+    sleep $self->{interval};
 }
 
 
