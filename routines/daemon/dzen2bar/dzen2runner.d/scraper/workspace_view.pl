@@ -67,6 +67,8 @@ sub _event_handler {
             delete $state_buffer->{id_map}{$updated_id};
             $state_buffer->{is_dirty} = 1;
         }
+
+        # https://metacpan.org/pod/IPC::Run#get_more_input
         $maybe_input = get_more_input;
     } while (
         defined $maybe_input
@@ -101,7 +103,7 @@ sub _init_state {
 sub fetch_update {
     my($self) = @_;
     return unless $event_harness->pumpable;
-    $event_harness->pump_nb;
+    $event_harness->pump_nb;    # https://metacpan.org/pod/IPC::Run#pump_nb
     if ($state_buffer->{is_dirty}) {
         $self->append_tokens([
             { label => 'workspace' },

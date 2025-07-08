@@ -25,7 +25,7 @@ my %is_implemented = map {$_ => 1} qw(
   cpu_stats
   localtime_view
   workspace_view
-  lvm_stats
+  volume_stats
   memory_stats
   net_stats
   audiovol_view

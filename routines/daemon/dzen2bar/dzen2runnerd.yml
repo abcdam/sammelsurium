@@ -26,7 +26,7 @@ group:
     is_dock: 1
   br:
     scraper:
-      - lvm_stats
+      - volume_stats
       - cpu_stats
       - memory_stats
       - net_stats
@@ -43,18 +43,54 @@ scraper:
 
   memory_stats:
 
-  lvm_stats:
+  # device_conf:
+  #   key := fs mountpoint
+  #   value := {
+  #     label -> display value
+  #     show -> feature toggle
+  #   }
+  #
+  volume_stats:
     interval: 2
-    device_map:
-      dm-0: /home
-      dm-1: /root
-      dm-3: /tmp
-      dm-4: /var
+    device_conf:
+      /home:
+        label: /home
+        show:
+          io_load: true
+          space_used: true
+      /:
+        label: /root
+        show:
+          io_load: true
+          space_used: true
+      /boot:
+        label: /boot
+        show:
+          io_load: true
+      /var:
+        label: /var
+        show:
+          io_load: true
+          space_used: true
+      /tmp:
+        label: /tmp
+        show:
+          space_used: true
 
+  # device_conf:
+  #   key := interface id
+  #   value := {
+  #     label -> display value
+  #     show -> feature toggle
+  #   }
+  #
   net_stats:
     interval: 2
-    device_map:
-      wlan0: wlan0
+    device_conf:
+      wlan0:
+        label: wlan0
+        show:
+          io_load: true
 
   workspace_view:
     interval: 0.3

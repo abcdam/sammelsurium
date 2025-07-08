@@ -19,7 +19,7 @@ sub _fetch_IO_update {
             $self->_calc_io_loads_averaged($dev, $curr_stats)
           }{qw(in out)};
         $self->append_tokens([
-            { label => $self->{device_map}{$dev} },
+            { label => $self->{dm}{$dev}{label} },
             { value => $IN_str },
             { sep   => ':' },
             { value => $OUT_str }
@@ -78,7 +78,7 @@ sub _get_IO_activity {
                 }
               )
               : ()
-        } sort keys %{ $self->{device_map} }
+        } @{ $self->{dm_lists}{io_load} }
     };
 }
 1;

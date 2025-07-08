@@ -12,9 +12,29 @@ BEGIN {
 use parent qw(TaskRunner IOActivity);
 
 
+sub _build_interface_map {
+    my $self = shift;
+    while (my($dev_cfg_key, $cfg) = each %{ $self->{device_conf} }) {
+        $cfg->{dev_cfg_key} = $dev_cfg_key;
+    }
+    return $self->{device_conf};
+}
+
+
 sub run {
     my $class = shift;
-    $class->init->run_loop;
+    my $self  = $class->init;
+    $self->{dm} = $self->_build_interface_map;
+
+    my $show_opt = [qw(io_load)];
+    $self->{dm_lists} = { map {$_ => []} @$show_opt };
+    while (my($dm_path, $cfg) = each %{ $self->{dm} }) {
+        for (@$show_opt) {
+            push @{ $self->{dm_lists}{$_} }, $dm_path
+              if $cfg->{show}{$_}
+        }}
+
+    $self->run_loop;
 }
 
 
