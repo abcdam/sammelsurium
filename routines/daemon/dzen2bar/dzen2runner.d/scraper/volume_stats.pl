@@ -8,9 +8,37 @@ BEGIN {
     use File::Basename;
     push @INC, dirname(__FILE__) . '/../lib';
 }
-
+use Filesys::DfPortable;
 use parent qw(TaskRunner IOActivity);
 use constant SECTOR_SIZE => 512;
+use constant GiB_FACTOR  => 1024**3;
+use Data::Dumper qw (Dumper);
+
+
+sub run {
+    my $class = shift;
+    $class
+      ->init
+      ->_register_handlers
+      ->_setup_run_config(sub {
+        my($dm_path, $toggles) = @_;
+        return {    # ADDITIONAL FEATURE CONFIG
+            $toggles->{io_load} ? (sys_stat_file => _stat_fpath($dm_path)) : ()
+        }
+      })
+      ->run_loop;
+}
+
+
+sub fetch_update {(shift)->_fetch_IO_update}
+
+
+sub _stat_fpath {
+    my $dm_path = shift;
+    my $rdev    = (stat($dm_path))[6];
+    my($major, $minor) = (int($rdev / 256), $rdev % 256);
+    return sprintf '/sys/dev/block/%s:%s/stat', $major, $minor;
+}
 
 
 sub _build_device_map {
@@ -38,60 +66,40 @@ sub _build_device_map {
 
         $dm{$dev_mapping} = {
             %{ $dev_cfgs->{$mountpoint_id} },
-            dev_cfg_key => $mountpoint_id
+            mount_point => $mountpoint_id
         };
     }
     return \%dm;
 } ## end sub _build_device_map
 
 
-sub run {
-    my $class = shift;
-    my $self  = $class->init;
-    $self->{dm} = $self->_build_device_map;
-
-    my $show_opt = [qw(io_load space_used)];
-    $self->{dm_lists} = { map {$_ => []} @$show_opt };
-    while (my($dm_path, $cfg) = each %{ $self->{dm} }) {
-        for (@$show_opt) {
-            push @{ $self->{dm_lists}{$_} }, $dm_path
-              if $cfg->{show}{$_}
-        }}
-
-    while (my($dm_path, $cfg) = each %{ $self->{dm} }) {
-        my $rdev = (stat($dm_path))[6];
-        my($major, $minor) = (int($rdev / 256), $rdev % 256);
-        $cfg->{maj_min} = sprintf '%s:%s', $major, $minor;
-    }
-    $self->run_loop;
-} ## end sub run
-
-
-sub fetch_update {
-    my($self) = @_;
-    my $curr_stats = $self->_get_volume_activity;
-    $self->_fetch_IO_update($curr_stats);
-    say 'ok';
+sub _get_current_stats {
+    my($self, $dev_id) = @_;
+    my($line) =
+      Path::Tiny::path(
+        $self->{dm}{$dev_id}{sys_stat_file}
+      )->lines;
+    my %curr_stats;
+    @curr_stats{qw(in out)} = map {$_ * SECTOR_SIZE} (
+        grep {length} split /\s+/, $line
+    )[ 2, 6 ];
+    return \%curr_stats;
 }
 
 
-sub _get_volume_activity {
-    my($self) = @_;
-    return $self->_get_IO_activity({
-        data_loader => sub {
-            my $dm_dev = shift;
-            my($line) =
-              Path::Tiny::path(
-                "/sys/dev/block/$self->{dm}{$dm_dev}{maj_min}/stat"
-              )->lines;
-            return $line;
+sub _register_handlers {
+    my $self            = shift;
+    my $shared_handlers = $self->_get_shared_handlers;
+    my $handler         = {
+        io_load => sub {
+            my($dev_id) = @_;
+            my $curr = $self->_get_current_stats($dev_id);
+            return $shared_handlers->{io_load}->($dev_id, $curr);
         },
-        data_parser => sub {
-            return map {$_ * SECTOR_SIZE} (
-                grep {length} split /\s+/, shift
-            )[ 2, 6 ];
-        }
-    });
+    };
+
+    $self->{handler} = $handler;
+    return $self;
 }
 
 package main;

@@ -46,8 +46,8 @@ scraper:
   # device_conf:
   #   key := fs mountpoint
   #   value := {
-  #     label -> display value
-  #     show -> feature toggle
+  #     label := display value
+  #     show := {feature toggles}
   #   }
   #
   volume_stats:
@@ -57,31 +57,31 @@ scraper:
         label: /home
         show:
           io_load: true
-          space_used: true
+          # space_used: true
       /:
         label: /root
         show:
           io_load: true
-          space_used: true
+          # space_used: true
       /boot:
         label: /boot
         show:
-          io_load: true
+          # space_used: true
       /var:
         label: /var
         show:
           io_load: true
-          space_used: true
+          # space_used: true
       /tmp:
         label: /tmp
         show:
-          space_used: true
+          io_load: true
 
   # device_conf:
   #   key := interface id
   #   value := {
-  #     label -> display value
-  #     show -> feature toggle
+  #     label := display value
+  #     show := {feature toggles}
   #   }
   #
   net_stats:

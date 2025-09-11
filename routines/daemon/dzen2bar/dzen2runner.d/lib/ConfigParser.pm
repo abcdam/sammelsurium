@@ -2,7 +2,7 @@
 package ConfigParser;
 use v5.36.0;
 
-use YAML::Tiny qw(LoadFile);
+use YAML::XS qw(LoadFile);
 use Carp;
 
 
