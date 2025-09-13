@@ -19,6 +19,7 @@ ipc()         { i3-msg ${1:?'missing args to i3-msg'}; }
 
 mark_exists() { ipc "${2:-} -t get_marks" 2>/dev/null | grep -q "\"$1\""; }
 stop_float()  { ipc "$1 floating disable";  }
+scratchify()  { ipc "$1 move scratchpad";   }
 has_mark()    { mark_exists "$1" 'focus';   }
 v_toggle()    { ipc "$1 scratchpad show";   }
 unmark()      { ipc "$1 unmark $2";         }
@@ -39,7 +40,7 @@ marker() {
   else
     pshh mark "$mark_id"                              \
       || throw "$ft apply mark $err_postf"
-    pshh ipc "move scratchpad"                        \
+    pshh scratchify "$target_id"                      \
       || throw "$ft move scratchpad $err_postf"
     pshh v_toggle $target_id                          \
       || throw "$ft show scratchpad $err_postf"

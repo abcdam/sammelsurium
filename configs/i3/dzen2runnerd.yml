@@ -2,15 +2,15 @@ defaults:
   scraper:
     interval: 5
     color:
-      value: "#B3541E"
-      label: "#774360"
+      value: "#b57614" # $yellow_mute
+      label: "#bdae93" # $pale5
   group:
     px_height: 20
     mode: composition
-    font: TX\-02\ Light-12
+    font: TX\-02\ Thin-12
     color:
-      fg: "#577590"
-      bg: "#1A1A2E"
+      fg: "#bdae93" # $pale5
+      bg: "#1d2021" # $dark0
 
 group:
   bc:
@@ -38,8 +38,6 @@ scraper:
 
   localtime_view:
     interval: 1
-    color:
-      value: "#774360"
 
   memory_stats:
 
