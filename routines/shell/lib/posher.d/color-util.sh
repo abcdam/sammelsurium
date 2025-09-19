@@ -1,14 +1,14 @@
 
 
-_parse_ANSI_style_opt() {
-    ANSI_style_opt=${1:-}
-    is_param_set "$ANSI_style_opt" && retval=$? || retval=$?
+_parse_ANSI_style() {
+    ANSI_style_id="${1:-}"; retval=0
+    is_param_set "$ANSI_style_id" || retval=$?
 
     if [ $retval -ne 0 ]; then
-        fmt="$__POSHER_ERR_MSG_PREFIX _parse_hue_opt(): requires param to be set"
+        fmt="$__POSHER_ERR_MSG_PREFIX _parse_ANSI_style(): requires param to be set"
         printf "$fmt\n" >&2
     else
-        case "$ANSI_style_opt" in
+        case "$ANSI_style_id" in
             n|normal)       printf '0';;
             b|bold)         printf '1';;
             f|faint)        printf '2';;
@@ -17,25 +17,25 @@ _parse_ANSI_style_opt() {
             *) retval=64
         fmt="$__POSHER_ERR_MSG_PREFIX: %s. (expected: one of '%s' - got: '%s')"
                 printf "$fmt\n"                                 \
-                    "_parse_hue_opt(): invalid font modifier"   \
+                    "_parse_ANSI_style(): invalid font modifier"   \
                     "bfuni"                                     \
-                    "$ANSI_style_opt" >&2
+                    "$ANSI_style_id" >&2
                 ;;
         esac
     fi
-    unset ANSI_style_opt fmt
+    unset ANSI_style_id fmt
     return $retval
 }
 
 _parse_ANSI_color() {
-    ANSI_color_opt=${1:-}
-    is_param_set "$ANSI_color_opt" && retval=$? || retval=$?
+    ANSI_color_id="${1:-}"; retval=0
+    is_param_set "$ANSI_color_id" || retval=$?
 
     if [ $retval -ne 0 ]; then
         fmt="$__POSHER_ERR_MSG_PREFIX _parse_ANSI_color(): requires param to be set"
         printf "$fmt\n" >&2
     else
-        case "$ANSI_color_opt" in
+        case "$ANSI_color_id" in
             w|white)                printf '37';;
             r|red)                  printf '31';;
             g|green)                printf '32';;
@@ -56,23 +56,42 @@ _parse_ANSI_color() {
         fmt="$__POSHER_ERR_MSG_PREFIX: %s. (expected: valid 4-bit color key - got: '%s')"
                 printf "$fmt\n"                                 \
                     "_parse_ANSI_color(): invalid color option" \
-                    "$ANSI_color_opt" >&2
+                    "$ANSI_color_id" >&2
                 ;;
         esac
     fi
-    unset ANSI_color_opt fmt
+    unset ANSI_color_id fmt
     return $retval
 }
 
 # Output: cosmetically modified input string according to given params
-# $1: txt (required): string of chars to be colored
-# $2: _color (default (37) white): supports basic 4-bit color set -> check switch case for keys
-# $3: _option (default (n)ormal): (n)ormal, (b)old, (f)aint, (i)talic, (u)nderline
+# $input_txt:
+#       sequence of chars to be colored
+# $with_color (defaults to white):
+#       supports basic 4-bit color set by id -> check switch case for keys
+# $with_style (defaults to (n)ormal):
+#       (n)ormal, (b)old, (f)aint, (i)talic, (u)nderline
 #
 hue() {
-    [ -z "$1" ] && printf "Error: missing 1st positional argument (target text) in hue() params.\n" >&2 && exit 1
-    _hue_color="$(_parse_ANSI_color "${2:-}")"
-    _hue_opt="$(_parse_ANSI_style_opt "${3:-}")"
-    RESET='\033[0m'
-    printf "\033[${_hue_opt};${_hue_color}m${1}${RESET}"
+    input_txt="${1:-}"
+    with_color="${2:-white}"
+    with_style="${3:-normal}"
+    retval=0
+    is_param_set "$input_txt" || retval=$?
+    if [ $retval -eq 0 ]; then
+      ansi_color="$(_parse_ANSI_color "$with_color")"       \
+        && ansi_style="$(_parse_ANSI_style "$with_style")"  \
+        || retval=$?
+
+      if [ $retval -eq 0 ]; then
+        RESET='\033[0m'
+        printf "\033[${ansi_style};${ansi_color}m${input_txt}${RESET}"
+      fi
+    else
+      fmt="$__POSHER_ERR_MSG_PREFIX hue(): requires input_txt param to be set"
+      printf "$fmt\n" >&2
+    fi
+
+    unset input_txt ansi_color ansi_style with_color with_style
+    return $retval
 }

@@ -1,5 +1,6 @@
 load_posher color
-# set -x
+
+# $4: if expected exit code is not set, it is assumed to be zero
 assert_equal() {
     got_ov="$1"
     exp_ov_pattern="$3"
@@ -31,7 +32,7 @@ run_tests() {
   grep -v -E '^\s*(#|$)'  \
     | while IFS='|'       \
         read -r test_id input exp_pattern exp_excode; do
-        got_outval=$("$parser" "$input" 2>&1) && got_excode=$? || got_excode=$?
+        got_outval="$(eval "set -- $input"; "$parser" "$@" 2>&1)" && got_excode=$? || got_excode=$?
         assert_equal "$got_outval" "$got_excode" "$exp_pattern" "$exp_excode" "$test_id"
       done
 }
@@ -40,9 +41,9 @@ run_tests() {
 ####################
 ###  Test Cases  ###
 ####################
-test_parse_ANSI_style_opt() {
+test_parse_ANSI_style() {
 
-  run_tests '_parse_ANSI_style_opt' <<'TESTS'
+  run_tests '_parse_ANSI_style' <<'TESTS'
 #####
 ####
 ### TABLE ROW DEF:
@@ -51,27 +52,27 @@ test_parse_ANSI_style_opt() {
 
 
 # expected errors
-no ANSI_style option||_parse_hue_opt(): requires param to be set|64
-non-existent ANSI_style option|stereospace|(expected: one of 'bfuni' - got: 'stereospace')|64
+no ANSI_style id||_parse_ANSI_style(): requires param to be set|64
+non-existent ANSI_style id|stereospace|(expected: one of 'bfuni' - got: 'stereospace')|64
 
 # happy paths
-(n)ormal ANSI_style option|n|0|0
-normal ANSI_style option|normal|0|0
+(n)ormal ANSI_style id|n|0
+normal ANSI_style id|normal|0
 
-(b)old ANSI_style option|b|1|0
-bold ANSI_style option|bold|1|0
+(b)old ANSI_style id|b|1
+bold ANSI_style id|bold|1
 
-(f)aint ANSI_style option|f|2|0
-faint ANSI_style option|faint|2|0
+(f)aint ANSI_style id|f|2
+faint ANSI_style id|faint|2
 
-(i)talic ANSI_style option|i|3|0
-italic ANSI_style option|italic|3|0
+(i)talic ANSI_style id|i|3
+italic ANSI_style id|italic|3
 
-(u)nderline ANSI_style option|u|4|0
-underline ANSI_style option|underline|4|0
+(u)nderline ANSI_style id|u|4
+underline ANSI_style id|underline|4
 
 TESTS
-} ## END test_parse_ANSI_style_opt()
+} ## END test_parse_ANSI_style()
 
 
 
@@ -86,60 +87,73 @@ test_parse_ANSI_color() {
 
 
 # expected errors
-no ANSI_color option||_parse_ANSI_color(): requires param to be set|64
-non-existent ANSI_color option|ultraviolent|(expected: valid 4-bit color key - got: 'ultraviolent')|64
-
-(w)hite ANSI_color option|w|37|0
-white ANSI_color option|white|37|0
-
-(r)ed ANSI_color option|r|31|0
-red ANSI_color option|red|31|0
-
-(g)reen ANSI_color option|g|32|0
-green ANSI_color option|green|32|0
-
-(y)ellow ANSI_color option|y|33|0
-yellow ANSI_color option|yellow|33|0
-
-(b)lue ANSI_color option|b|34|0
-blue ANSI_color option|blue|34|0
-
-(m)agenta ANSI_color option|m|35|0
-magenta ANSI_color option|magenta|35|0
-(p)urple ANSI_color option|p|35|0
-purple ANSI_color option|purple|35|0
-
-(c)yan ANSI_color option|c|36|0
-cyan ANSI_color option|cyan|36|0
-
-gray ANSI_color option|gray|90|0
-
-(l)ight(r)red  ANSI_color option|lr|91|0
-lightred  ANSI_color option|lightred|91|0
+no ANSI_color id||_parse_ANSI_color(): requires param to be set|64
+non-existent ANSI_color id|ultraviolent|(expected: valid 4-bit color key - got: 'ultraviolent')|64
 
 
-(l)ight(g)reen ANSI_color option|lg|92|0
-lightgreen ANSI_color option|lightgreen|92|0
+# happy paths
+(w)hite ANSI_color id|w|37
+white ANSI_color id|white|37
 
+(r)ed ANSI_color id|r|31
+red ANSI_color id|red|31
 
-(l)ight(y)ellow ANSI_color option|ly|93|0
-lightyellow ANSI_color option|lightyellow|93|0
+(g)reen ANSI_color id|g|32
+green ANSI_color id|green|32
 
-(l)ight(b)lue ANSI_color option|lb|94|0
-lightblue ANSI_color option|lightblue|94|0
+(y)ellow ANSI_color id|y|33
+yellow ANSI_color id|yellow|33
 
-(l)ight(m)agenta ANSI_color option|lm|95|0
-lightmagenta ANSI_color option|lightmagenta|95|0
-(l)ight(p)urple ANSI_color option|lp|95|0
-lightpurple ANSI_color option|lightpurple|95|0
+(b)lue ANSI_color id|b|34
+blue ANSI_color id|blue|34
 
-(l)ight(c)yan ANSI_color option|lc|96|0
-lightcyan ANSI_color option|lightcyan|96|0
+(m)agenta ANSI_color id|m|35
+magenta ANSI_color id|magenta|35
+(p)urple ANSI_color id|p|35
+purple ANSI_color id|purple|35
 
-black ANSI_color option|black|30|0
+(c)yan ANSI_color id|c|36
+cyan ANSI_color id|cyan|36
 
-(t)rue(w)hite ANSI_color option|tw|97|0
-truewhite ANSI_color option|truewhite|97
+gray ANSI_color id|gray|90
+
+(l)ight(r)red  ANSI_color id|lr|91
+lightred  ANSI_color id|lightred|91
+
+(l)ight(g)reen ANSI_color id|lg|92
+lightgreen ANSI_color id|lightgreen|92
+
+(l)ight(y)ellow ANSI_color id|ly|93
+lightyellow ANSI_color id|lightyellow|93
+
+(l)ight(b)lue ANSI_color id|lb|94
+lightblue ANSI_color id|lightblue|94
+
+(l)ight(m)agenta ANSI_color id|lm|95
+lightmagenta ANSI_color id|lightmagenta|95
+(l)ight(p)urple ANSI_color id|lp|95
+lightpurple ANSI_color id|lightpurple|95
+
+(l)ight(c)yan ANSI_color id|lc|96
+lightcyan ANSI_color id|lightcyan|96
+
+black ANSI_color id|black|30
+
+(t)rue(w)hite ANSI_color id|tw|97
+truewhite ANSI_color id|truewhite|97
 
 TESTS
 } ## END test_parse_ANSI_color()
+
+test_hue() {
+  run_tests 'hue' <<TESTS
+#####
+####
+### TABLE ROW DEF:
+##   < test id >|<test input>|< expected output pattern/substring >|< expected exit code >
+#
+
+no params hue()||hue(): requires input_txt param to be set|64
+input text + wrong color hue()|"input text" "ultraviolent"|(expected: valid 4-bit color key - got: 'ultraviolent')|64
+TESTS
+}

@@ -34,3 +34,5 @@ get_pkg_gpg_dir() {
     fi
     printf '%s' "$DIR"
 }
+
+return_str() { printf '%s' "${1:-}"; }

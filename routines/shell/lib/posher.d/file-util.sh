@@ -8,7 +8,21 @@ get_dir_of() {
 }
 
 is_file() {
-    [ -f "$(abs_path "$1")" ]
+    _is_file_path_param="${1:-}"
+    _is_file_canonicalize_param="${2:-}"
+    retval=1
+
+    if [ -n "$_is_file_path_param" ] \
+    && [ -f "$_is_file_path_param" ]; then
+        retval=0
+        if [ -n "$_is_file_canonicalize_param" ] \
+        && ! abs_path "$_is_file_path_param"; then
+            retval=1
+        fi
+    fi
+
+    unset _is_file_path_param _is_file_canonicalize_param
+    return $retval
 }
 
 is_dir() {

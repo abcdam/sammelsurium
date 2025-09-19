@@ -1,12 +1,11 @@
 #!/bin/dash
 set -eu
 #   @abcdam
-# Interface for the POSIX-compliant shell library (short: posher)
+# Interface for the POSIX-compliant shell helper (short: posher)
 #   It facilitates the modularization, extension, and sourcing of frequently used,
 #   use case-specific shell routines in a simple and uncluttered manner, while aiming
 #   to keep the session environment tidier thanks to a lazy-load-first approach.
 #
-#   TODO: increase call specificity down to the function level with param passthrough
 #
 # http://gondor.apana.org.au/~herbert/dash
 # https://pubs.opengroup.org/onlinepubs/007904875/utilities/xcu_chap01.html#tag_01
@@ -20,7 +19,9 @@ export POSHER_LIB_DIR='/usr/local/lib/posher.d'
 export __POSHER_ERR_MSG_PREFIX="[\033[1;31mFATAL\033[0m]"
 
 abs_path() {
-  curr_path="$1"
+  curr_path="${1:-}"
+  is_param_set "$curr_path" 'strict' "" "abs_path(): requires non-null path param"
+
   while [ -L "$curr_path" ]; do
       tmp_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
       curr_path="$(ls -ld "$curr_path" | awk '{print $NF}')"
@@ -43,11 +44,11 @@ is_param_set() {
   err_msg="${4:-'is_param_set(): got unset/null param in strict mode'}"
 
   case "$mode" in
-    lax) [ -n "${param_to_check:-}" ] && retval=0 
+    lax) [ -n "$param_to_check" ] && retval=0
       ;;
-    strict) ${param_to_check:?"$__POSHER_ERR_MSG_PREFIX $err_msg"} && retval=0
+    strict) [ -n ${param_to_check:?"$__POSHER_ERR_MSG_PREFIX $err_msg"} ] && retval=0
       ;;
-    *) 
+    *)
   fmt="$__POSHER_ERR_MSG_PREFIX is_param_set(): wrong mode. (expected: {lax|strict} - got: %s)"
       printf "$fmt\n" "$mode" >&2
       exit 64

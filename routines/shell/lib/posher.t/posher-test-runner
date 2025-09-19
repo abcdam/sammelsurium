@@ -3,10 +3,10 @@
 # 25/07
 
 cat <<'EOF'
-  .   .         .            .                    .      .            .       . 
- * .         .        +   .     +   .  *   *    .      .      +      .    *     
-    *   .  * .   . * .  .    .   +   . ..   +   . . +   .    .    .          +  
-  . + *  :* + :  + . .  .*+.++      : #     .    * * .   + .  :* +  .  *+   .   
+  .   .         .            .                    .      .            .       .
+ * .         .        +   .     +   .  *   *    .      .      +      .    *
+  + *   .  * .   . * .  .    .   +   . ..   +   . . +   .    .    .          +
+  .   *  :* + :  + . .  .*+.++      : #     .    * * .   + .  :* +  .  *+   .
  . * +   : #*#.*      *.*:+._________*.*___  ___ :#*       .: *.# *    *    #  .
 +*: ________*.# ________:**|\   _____\*|\  \|\  \#.*#________#.+*________+# # :*
 #*+|\   __  \ +|\   __  \+*\ \  \TTTT|*\ \  \_\  \*+|\   ____\+*|\   __  \+#*+*+
@@ -16,13 +16,14 @@ cat <<'EOF'
 @#@###\ \  \WW+W#+\ \_______\\|_________|W#\|__|\|__|##\ \_______\#\ \__\\ \_#@#
 WW@@W##|\___\@@W@W#\|_______|WWWWWWWW@@WWWWW@WWWWW@W@#WW\|_______|#@\|__| \__\W@
 WW@##@W\|___|#W@@@@W#WWW###WWW#WW@@@@WWWWW###WWWWW#@@@##W#@##WWWW##@@@@#W\|__|@W
-WW@@WWW@@W@W@W@@@WW@@@W@W@W@@@W@@@WW@W@W@@@W@W@W@W@WW@W@W@@@W@W@W@W@WW@@WW@@@WWW
-WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WW@@WWW@@W@W@W@@@WW@@@W@W@W@W@@@W@WWW@W@W@W@WW@@WW@@@WWWW@W@W@W@WW@@WW@W@WWW@W@W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW] a POSIX-compliant shell helper [WW
 TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 EOF
 
 . $(get-posher)
 
+my_parent=$(dirname $(abs_path "$0"))
 
 printf '%s\n' \
   '                                                                               |' \
@@ -32,23 +33,29 @@ printf '%s\n' \
   '                                                                               /' \
 ####
 ####
-( . tests/color-util.test.sh
+( . "$my_parent/tests/color-util.test.sh"
   printf '%s\n' \
   '=======================================================..color-util..tests..==o-' \
   '                                                                              / ' \
   '==--==--==--==--==--==--==--==--==--==--==--..test_parse_ANSI_style_opt..--==o--' \
   '                                                                             |  '
-        test_parse_ANSI_style_opt
+        test_parse_ANSI_style
 
   printf '%s\n' \
   '                                                                             |  ' \
   '==--==--==--==--==--==--==--==--==--==--==--==--..test_parse_ANSI_color..--==o--' \
   '                                                                             |  '
         test_parse_ANSI_color
-  
+
+  printf '%s\n' \
+  '                                                                             |  ' \
+  '==--==--==--==--==--==--==--==--==--==--==--==--==--==--==--=..test_hue..--==o--' \
+  '                                                                             |  '
+
+        test_hue
   printf '%s\n' \
   '                                                                              \ ' \
-  '===================================================DONE..color-util..tests..==o-' \
+  '=================================================..DONE..color-util..tests..==o-' \
   '                                                                               \' \
 ) ## END color-util.test.sh
 
