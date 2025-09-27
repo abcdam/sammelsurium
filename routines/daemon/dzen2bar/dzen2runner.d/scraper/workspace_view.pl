@@ -9,114 +9,219 @@ BEGIN {
     push @INC, dirname(__FILE__) . '/../lib';
 }
 
-use IPC::Run qw( start new_chunker input_avail get_more_input);
+use IPC::Run qw( start new_chunker );
 use JSON::XS;
 use parent 'TaskRunner';
+use Try::Tiny;
+use POSIX qw(strftime);
 
-my @CMD
-  = (qw(i3-msg -t subscribe -m), qq(["workspace"]));
+my @CMD     = (qw(i3-msg -t subscribe -m), qq(["workspace"]));
+my $janitor = {};
 
-my $state_buffer = {
-    is_dirty  => undef,
-    active_id => undef,
-    id_map    => {}
-};
-
-my $fake_out;
-my $event_harness = start \@CMD
-  , '>'
-  , new_chunker    # split by newline on multiple events
-  , \&_event_handler
-  , \$fake_out;
+END {($janitor->{cleanup} // sub { })->()}
 
 
-END {
-    if ($event_harness->pumpable) {
-        $event_harness->finish and sleep 5
-          or $event_harness->kill_kill
-          or warn "harness cleanup failed: $@";
-    }}
+sub dump_raw {    # temporary tracker to investigate malformed i3 messages
+    my $raw_event   = shift;
+    my $err         = $_;
+    my $tmp_logfile = '/tmp/dzen2runner.workspace_view.debug.log';
+    my $stamp       = strftime "%y/%m/%d %H:%M:%S", localtime;
 
-
-sub _event_handler {
-    my($in_ref, $out_ref) = @_;
-
-    # https://metacpan.org/pod/IPC::Run#input_avail
-    my $maybe_input = input_avail;
-    return 0 unless
-      defined $maybe_input
-      && ! length $$out_ref;
-
-    do {
-        my $raw_event = $$in_ref;
-
-        # clear input: https://metacpan.org/pod/IPC::Run#new_chunker
-        $$in_ref = '';
-        my $event = decode_json($raw_event)
-          or return 0;    # NOTE: might need verbose err handling
-
-        my $change_type = $event->{change}
-          or return 0;
-        my $updated_id = $event->{current}{name};
-        if ($change_type eq 'focus') {
-            if ($updated_id ne $state_buffer->{active_id}) {
-                @{$state_buffer}{qw(active_id is_dirty)} = ($updated_id, 1);
-                $state_buffer->{id_map}{$updated_id} = 1;
-            }}
-        elsif ($change_type eq 'empty') {
-            delete $state_buffer->{id_map}{$updated_id};
-            $state_buffer->{is_dirty} = 1;
-        }
-
-        # https://metacpan.org/pod/IPC::Run#get_more_input
-        $maybe_input = get_more_input;
-    } while (
-        defined $maybe_input
-        && $maybe_input ne 0
+    my @debug_entry = map {"$_\n"} (
+        '========',
+        sprintf(
+            '[%s] %s', $stamp, $err
+        ),
+        'raw event dump:',
+        $raw_event
     );
-    return 0;
-} ## end sub _event_handler
-
-
-sub _get_workspace_tokens {
-    return map {{
-        (   $_ eq $state_buffer->{active_id}
-            ? 'value'
-            : 'label'
-        ) => sprintf('%s ', $_)
-    }} sort keys %{ $state_buffer->{id_map} };
+    Path::Tiny::path($tmp_logfile)->append(@debug_entry);
+    return;
 }
 
 
-sub _init_state {
-    my $self    = shift;
-    my @wspaces = @{ decode_json(`i3-msg -t get_workspaces`) };
-    for (@wspaces) {
-        @{$state_buffer}{qw(active_id is_dirty)}
-          = ($_->{name}, 1) if $_->{focused};
-        $state_buffer->{id_map}{ $_->{name} } = 1;
+sub create_queue_service {
+    my @QUEUE;
+    return {
+        create_consumer => sub {
+            my $harness = shift;
+            sub {
+                my($prev, $curr) = (-1, scalar @QUEUE);
+                do {$harness->pump_nb; ($prev, $curr) = ($curr, scalar @QUEUE)}
+                  until $curr == $prev;
+                return unless $curr;
+                [ splice(@QUEUE, 0) ]
+            }
+        },
+        create_writer => sub {
+            my $filtermap = shift;
+            sub {
+                return unless defined(my $event = $filtermap->(shift));
+                push @QUEUE, $event;
+            }
+
+        }
     }
-    return $self;
+} ## end sub create_queue_service
+
+
+sub create_filtermap {
+    my %event_reg = map {$_ => $_} qw (focus empty init);
+    my $step      = {
+        filter => {
+            defined => sub {
+                return unless defined;
+                chomp;
+                return unless length;
+                $_
+            },
+            relevant => sub {
+                return unless
+                  ref $_ eq 'HASH'
+                  && defined $event_reg{ $_->{change} }
+                  && defined $_->{current}{name};
+                $_
+            }
+        },
+        transform => {
+            decode =>
+              sub {do {my $r = $_; try {decode_json $r} catch {dump_raw $r}}},
+            reduce =>
+              sub {{ kind => $_->{change}, label => $_->{current}{name} }}
+        }
+    };
+    my @pipeline = (
+        $step->{filter}{defined},
+        $step->{transform}{decode},
+        $step->{filter}{relevant},
+        $step->{transform}{reduce}
+    );
+    sub {
+        local $_ = shift;
+        for my $f (@pipeline) {last unless defined($_ = $f->())}
+        $_
+    }
+} ## end sub create_filtermap
+
+
+sub setup_subscription {
+    my $queue_svc     = create_queue_service();
+    my $event_harness = start \@CMD
+      , '>'
+      , new_chunker    # split input stream by newline
+      , $queue_svc->{create_writer}->(create_filtermap());
+    return {
+        collect_batch => $queue_svc->{create_consumer}->($event_harness),
+        cleanup       => sub {
+            return unless $event_harness->pumpable;
+            $event_harness->finish
+              or $event_harness->kill_kill
+              or warn "harness cleanup failed: $@";
+        }
+    }
+}
+
+
+sub incremental_state_assembly {
+    my($focus_snap, @loaded_space_keys) = @_;
+    my %loaded_spaces_snap;
+    @loaded_spaces_snap{@loaded_space_keys} = @loaded_space_keys;
+    my $make = sub {
+        my $new_focus = shift // $focus_snap;
+        $focus_snap = $new_focus;
+        (
+            active_focus  => $new_focus,
+            loaded_spaces => [ keys %loaded_spaces_snap ]
+        )
+    };
+    return {
+        focus => sub {$make->(shift)},
+        empty => sub {delete $loaded_spaces_snap{ shift() }; $make->()},
+        init  => sub {
+            my $label = shift;
+            $loaded_spaces_snap{$label} = $label;
+            $make->($label)
+        },
+    }
+} ## end sub incremental_state_assembly
+
+
+sub to_update {
+    my($batch, $active_focus, @loaded_spaces) = @_;
+
+    my $apply_event = incremental_state_assembly($active_focus, @loaded_spaces);
+    my %update      = map {$apply_event->{ $_->{kind} }->($_->{label})} @$batch;
+
+    my $sets_are_equal = do {
+        my @A = @{ $update{loaded_spaces} };
+        my %B;
+        @B{@loaded_spaces} = @loaded_spaces;
+        delete @B{@A};
+        %B == 0    # A >= B ∧ |A| == |B| -> A <=> B
+          && @loaded_spaces == @A
+    };
+    my $no_changes = $sets_are_equal
+      && $active_focus eq $update{active_focus};
+    return if $no_changes;
+    \%update
+}
+
+
+sub _append_tokens {
+    my $self = shift;
+    my $s    = $self->{state};
+    $self->append_tokens([
+        { label => 'workspace' },
+        { sep   => ': ' },
+        map {{
+            (   $_ eq $s->{active_focus}
+                ? 'value'
+                : 'label'
+            ) => sprintf('%s ', $_)
+        }} sort @{ $s->{loaded_spaces} }
+    ]);
+    $self
 }
 
 
 sub fetch_update {
-    my($self) = @_;
-    return unless $event_harness->pumpable;
-    $event_harness->pump_nb;    # https://metacpan.org/pod/IPC::Run#pump_nb
-    if ($state_buffer->{is_dirty}) {
-        $self->append_tokens([
-            { label => 'workspace' },
-            { sep   => ': ' },
-            _get_workspace_tokens()
-        ]);
-        delete $state_buffer->{is_dirty};
-    }}
+    my $self = shift;
+    return unless defined(my $batch = $self->{collect_batch}->());
+    my $s      = $self->{state};
+    my $update = to_update(
+        $batch,
+        $s->{active_focus},
+        @{ $s->{loaded_spaces} }
+    );
+    return unless defined $update;
+    $self->{state} = $update;
+    $self->_append_tokens
+}
+
+
+sub _init_state {
+    my $self = shift;
+    my($active_focus, @loaded_spaces);
+    for (@{ decode_json(`i3-msg -t get_workspaces`) }) {
+        $active_focus = $_->{name} if $_->{focused};
+        push @loaded_spaces, $_->{name};
+    }
+    $self->{state} = {
+        loaded_spaces => \@loaded_spaces,
+        active_focus  => $active_focus
+    };
+    $self->_append_tokens
+}
 
 
 sub run {
     my $class = shift;
-    $class->init->_init_state->run_loop;
+    my $self  = $class->init->_init_state;
+
+    my $subsc = setup_subscription();
+    $self->{collect_batch} = $subsc->{collect_batch};
+    $janitor->{cleanup}    = $subsc->{cleanup};
+    $self->run_loop
 }
 
 
