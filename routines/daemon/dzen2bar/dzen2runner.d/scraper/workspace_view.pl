@@ -12,32 +12,12 @@ BEGIN {
 use IPC::Run qw( start new_chunker );
 use JSON::XS;
 use parent 'TaskRunner';
-use Try::Tiny;
 use POSIX qw(strftime);
 
 my @CMD     = (qw(i3-msg -t subscribe -m), qq(["workspace"]));
-my $janitor = {};
+my $janitor = { cleanup => sub { } };    # noop until init complete
 
-END {($janitor->{cleanup} // sub { })->()}
-
-
-sub dump_raw {    # temporary tracker to investigate malformed i3 messages
-    my $raw_event   = shift;
-    my $err         = $_;
-    my $tmp_logfile = '/tmp/dzen2runner.workspace_view.debug.log';
-    my $stamp       = strftime "%y/%m/%d %H:%M:%S", localtime;
-
-    my @debug_entry = map {"$_\n"} (
-        '========',
-        sprintf(
-            '[%s] %s', $stamp, $err
-        ),
-        'raw event dump:',
-        $raw_event
-    );
-    Path::Tiny::path($tmp_logfile)->append(@debug_entry);
-    return;
-}
+END {$janitor->{cleanup}->()}
 
 
 sub create_queue_service {
@@ -84,10 +64,10 @@ sub create_filtermap {
             }
         },
         transform => {
-            decode =>
-              sub {do {my $r = $_; try {decode_json $r} catch {dump_raw $r}}},
-            reduce =>
-              sub {{ kind => $_->{change}, label => $_->{current}{name} }}
+            decode => sub {decode_json $_},
+            reduce => sub {
+                { kind => $_->{change}, label => $_->{current}{name} }
+            }
         }
     };
     my @pipeline = (
@@ -152,19 +132,22 @@ sub to_update {
     my $apply_event = incremental_state_assembly($active_focus, @loaded_spaces);
     my %update      = map {$apply_event->{ $_->{kind} }->($_->{label})} @$batch;
 
+    # focus change causes rerender
+    return \%update unless $active_focus eq $update{active_focus};
+
+    # added/removed workspaces in resolved update cause rerendering [p]
     my $sets_are_equal = do {
-        my @A = @{ $update{loaded_spaces} };
-        my %B;
-        @B{@loaded_spaces} = @loaded_spaces;
-        delete @B{@A};
-        %B == 0    # A >= B ∧ |A| == |B| -> A <=> B
-          && @loaded_spaces == @A
+        my %A;
+        @A{@loaded_spaces} = 1;
+        my @B = @{ $update{loaded_spaces} };
+        delete @A{@B};
+
+        # B >= A ∧ |A| == |B| -> A = B
+        ! %A && @B == @loaded_spaces
     };
-    my $no_changes = $sets_are_equal
-      && $active_focus eq $update{active_focus};
-    return if $no_changes;
+    return if $sets_are_equal;
     \%update
-}
+} ## end sub to_update
 
 
 sub _append_tokens {
@@ -186,7 +169,12 @@ sub _append_tokens {
 
 sub fetch_update {
     my $self = shift;
-    return unless defined(my $batch = $self->{collect_batch}->());
+    return unless defined(
+        my $batch = $self->gracious_eval(
+            $self->{collect_batch},
+            { errmsg => "unexpected batch collection error" }
+        )
+    );
     my $s      = $self->{state};
     my $update = to_update(
         $batch,

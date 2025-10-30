@@ -9,7 +9,6 @@ my @SEP_UNIC = map {chr $_} (0x259D, 0x2590, 0x259F, 0x2588);
 my @UNITS    = qw(Bs KiBs MiBs GiBs TiBs);
 my %UNIT_2_SEP;
 @UNIT_2_SEP{ @UNITS[ 1 .. $#UNITS ] } = @SEP_UNIC;
-use Data::Dumper qw (Dumper);
 
 
 sub _setup_run_config {

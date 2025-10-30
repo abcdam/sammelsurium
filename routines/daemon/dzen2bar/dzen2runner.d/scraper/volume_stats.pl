@@ -12,7 +12,6 @@ use Filesys::DfPortable;
 use parent qw(TaskRunner IOActivity);
 use constant SECTOR_SIZE => 512;
 use constant GiB_FACTOR  => 1024**3;
-use Data::Dumper qw (Dumper);
 
 
 sub run {

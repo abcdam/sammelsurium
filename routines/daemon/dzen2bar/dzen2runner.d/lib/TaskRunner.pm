@@ -173,6 +173,21 @@ sub _supplement_missing_configs {
 }
 
 
+sub gracious_eval {
+    my($self, $fun, $cfg) = @_;
+
+    $self->{log}->context->{ctxt} = $cfg->{ctxt} // $self;
+    my $outcome;
+    try {$outcome = $fun->()} catch {
+        die $self->{log}->error(
+            "(error case has no error message attached. Error will be propagated. Attach error message to opt into gracious mode): $_"
+        ) unless $cfg->{errmsg};
+        $self->{log}->error("$cfg->{errmsg}: $_")
+    };
+    $outcome
+}
+
+
 sub _logErr {
     my($self, $msg, $ctxt) = @_;
     local $self->{log}->context->{ctxt} = $ctxt
