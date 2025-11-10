@@ -43,12 +43,14 @@ g2g() {
           && printf "invalid arg. must be 'h' or 'l' but received: %s\n" "$1" >&2
       ;;
   esac
-  [ $retval -eq 0 ] && ! [ -d "$target" ] \
-    && retval=1                           \
-    && printf "error: '%s' not a dir\n" "$target" >&2
-  [ $retval -eq 0 ] \
-    && cd "$target" \
-    || retval=$?
+  if [ $retval -eq 0 ]; then
+    if [ -d "$target" ]; then
+      cd "$target" || retval=$?
+    else
+      retval=1
+      printf "error: '%s' not a dir\n" "$target" >&2
+    fi
+  fi
   unset target
   return $retval
 }
