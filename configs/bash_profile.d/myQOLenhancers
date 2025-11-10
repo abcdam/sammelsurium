@@ -1,47 +1,74 @@
-##
-## env vars
-##
-export HGIT="$HOME/dev/git"
-alias rsc='rsync --progress --outbuf=N --human-readable --archive --verbose --recursive --partial --mkpath --stats'
-alias lout='qdbus org.kde.ksmserver /KSMServer logout 0 0 0'
-alias ll='ls -la'
-alias sscreen='split-screen-monitor.sh'
-alias webcam='sudo launch_webcam'
+###==================================================================##
+## deprecated
+#####
 
-##
-## general
-##
+
 # overwrite system clipboard with primary buffer
 zz() {
     echo -ne "\033[K\033[F\033[K\033[F" && wl-paste -p | wl-copy -n
 }
 
-g2git() {
-    [ -d "$HGIT" ] && cd "$HGIT" || throw "err: cd to '$HGIT' failed.(code: $?)"
-}
+alias lout='qdbus org.kde.ksmserver /KSMServer logout 0 0 0'
 
-lsdu() {
-    du -ah -d 1 | sort -h
-}
 
-pnpm() {
-  local cmd="$1"
-  shift
+#---------------------------------------------------------------------#
 
-  case "$cmd" in
-    d) command pnpm run dev "$@" ;;
-    c) command pnpm run check "$@" ;;
-    b) command pnpm run build "$@" ;;
-    a) command pnpm add "$@" ;;
-    *) command pnpm "$cmd" "$@" ;;
-  esac
-}
+###==================================================================##
+## alias
+#####
 
-##
-## local kubectl
-##
-alias mkube="minikube"
+
+alias rsc='rsync --progress --outbuf=N --human-readable --archive --verbose --recursive --partial --mkpath --stats'
+alias ll='ls -la'
+alias sscreen='split-screen-monitor.sh'
+alias webcam='sudo launch_webcam'
 alias mkubectl="mkube kubectl --"
+
+
+#---------------------------------------------------------------------#
+
+###==================================================================##
+## utilities
+#####
+
+
+lsdu() { du -ah -d 1 | sort -h; }
+
+g2g() {
+  target="$HOME/dev/git";retval=0
+  case "$1" in
+    h)  target="${target}hub" ;;
+    l)  target="${target}lab" ;;
+    *)  retval=1              \
+          && printf "invalid arg. must be 'h' or 'l' but received: %s\n" "$1" >&2
+      ;;
+  esac
+  [ $retval -eq 0 ] && ! [ -d "$target" ] \
+    && retval=1                           \
+    && printf "error: '%s' not a dir\n" "$target" >&2
+  [ $retval -eq 0 ] \
+    && cd "$target" \
+    || retval=$?
+  unset target
+  return $retval
+}
+
+pp() {
+  retval=0;a=run
+  case "$1" in
+    d)      a="$a dev"                ;;
+    c)      a="$a check"              ;;
+    b)      a="$a build"              ;;
+    p)      a="$a preview"            ;;
+    a)      a='add -D'                ;;
+    lsv)    a='outdated --compatible' ;;
+    *)      a="$1"                    ;;
+  esac; shift
+  pnpm $a "$@" || retval=$?
+  unset a
+  return $retval
+}
+
 mkctl() {
     case "$1" in
         gpa)
@@ -70,3 +97,6 @@ mkctl() {
             ;;
     esac
 }
+
+
+#---------------------------------------------------------------------#
