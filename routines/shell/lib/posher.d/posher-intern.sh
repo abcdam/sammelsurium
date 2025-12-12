@@ -26,6 +26,7 @@ __posher_intern_error_printer() {
   return $retval
 }
 
+
 __posher_intern_confirm_lib_not_in_runtime() {
   retval=0
   if  [ -n "$_POSHER_CTXT_STATE" ]; then
@@ -38,6 +39,7 @@ __posher_intern_confirm_lib_not_in_runtime() {
   unset IFS loaded_lib
   return $retval
 }
+
 
 __posher_intern_validate_lib_loc() {
   retval=13
@@ -55,6 +57,7 @@ __posher_intern_validate_lib_loc() {
   return $retval
 }
 
+
 __posher_intern_get_validated_lib_path() {
   retval=0
   location="$(__posher_intern_validate_lib_loc "$1")"           \
@@ -65,11 +68,13 @@ __posher_intern_get_validated_lib_path() {
   [ $retval -eq 0 ] || exit $retval
 }
 
+
 # $1 -> lib id
 __posher_intern_source_if_not_available() {
   __posher_intern_confirm_lib_not_in_runtime "$1" \
   && . "$(__posher_intern_get_validated_lib_path "$1")"
 }
+
 
 __posher_intern_run_isolated() {
   (
@@ -93,5 +98,27 @@ __posher_intern_run_isolated() {
     exit $retval
   )
 }
+
+# *should* be reentrancy-safe
+__posher_intern_enable_set_u() {
+  case $- in
+    *u*)  __POSHER_INTERN_SET_U_LIFO="${__POSHER_INTERN_SET_U_LIFO:-}0"
+        ;;
+    *)    __POSHER_INTERN_SET_U_LIFO="${__POSHER_INTERN_SET_U_LIFO:-}1"
+          set -u
+        ;;
+  esac
+}
+
+# will die if called before __posher_intern_enable_set_u
+__posher_intern_restore_set_u() {
+  case "${__POSHER_INTERN_SET_U_LIFO:?assertion failed: stack undefined}" in
+    *1) set +u ;; *0) : ;;
+  esac
+  # pop
+  __POSHER_INTERN_SET_U_LIFO="${__POSHER_INTERN_SET_U_LIFO%?}"
+  [ -z "${__POSHER_INTERN_SET_U_LIFO}" ] && unset __POSHER_INTERN_SET_U_LIFO
+}
+
 
 trap 'printf "%s" "$(env)" | sh -c "$_POSHER_EXITRAP"' EXIT

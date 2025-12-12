@@ -1,0 +1,39 @@
+path_add() {
+  case ":$PATH:" in
+    *":$1:"*) :;;
+    *) PATH="$1:$PATH";;
+  esac
+}
+PERL5_INSTALL="$HOME/perl5"
+export PERL5LIB="${PERL5_INSTALL}/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
+export PERL_LOCAL_LIB_ROOT="${PERL5_INSTALL}${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"
+export PERL_MB_OPT="--install_base \"${PERL5_INSTALL}\""
+export PERL_MM_OPT="INSTALL_BASE=${PERL5_INSTALL}";
+
+export EDITOR="$(which vim)"
+
+export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
+unset SSH_AGENT_PID
+
+LOCAL_BIN="$HOME/bin"
+RUST_UTIL="$LOCAL_BIN/rust.d"
+GO_INSTALL=/usr/local/go
+
+export PNPM_HOME="$HOME/.local/share/pnpm"
+export FLYCTL_INSTALL="$HOME/.fly"
+
+path_add "$LOCAL_BIN"
+
+path_add "$PERL5_INSTALL/bin"
+path_add "$RUST_UTIL"
+path_add "$GO_INSTALL/bin"
+
+path_add "$PNPM_HOME"
+
+path_add "$FLYCTL_INSTALL/bin"
+
+source $MY_RC_PLUGINS/myQOLenhancers
+source ~/lib/completion-for-pnpm.bash
+
+export G2_CONF_DIR=$HOME
+source $MY_RC_PLUGINS/g2.bash

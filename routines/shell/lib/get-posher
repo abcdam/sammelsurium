@@ -1,11 +1,11 @@
-#!/bin/dash
-set -eu
-#   @abcdam
+#
 # Interface for the POSIX-compliant shell helper (short: posher)
 #   It facilitates the modularization, extension, and sourcing of frequently used,
 #   use case-specific shell routines in a simple and uncluttered manner, while aiming
 #   to keep the session environment tidier thanks to a lazy-load-first approach.
 #
+# @abcdam
+# 2025/02
 #
 # http://gondor.apana.org.au/~herbert/dash
 # https://pubs.opengroup.org/onlinepubs/007904875/utilities/xcu_chap01.html#tag_01
@@ -93,9 +93,13 @@ posher() {
   retval=0
   if is_cmd_available "$2"; then
     shift 1
+    __posher_intern_enable_set_u
     "$@" || retval=$?
+    __posher_intern_restore_set_u
   else
+    __posher_intern_enable_set_u
     __posher_intern_run_isolated "$@" || retval=$?
+    __posher_intern_restore_set_u
     if [ $retval -ne 0 ]; then
       sigfile="$(get_sigfile_p "$1" "$2")"
       if exival=$(cat "$sigfile"); then
@@ -112,6 +116,7 @@ posher() {
 
 # $@ -> lib ids
 load_posher() {
+  __posher_intern_enable_set_u
   retval=0
   IFS=" "
   while [ "$#" -gt 0 ]; do
@@ -122,10 +127,11 @@ load_posher() {
   done
   unset IFS
   export _POSHER_CTXT_STATE
+  __posher_intern_restore_set_u
 }
 
 
-# # TODO: verify integrity of caller and return path to allow sourcing
+# TODO: verify integrity of caller and return path to allow sourcing
 case $0 in
   */get-posher) printf '%s' "$(abs_path "$0")" && exit 0 ;;
 esac

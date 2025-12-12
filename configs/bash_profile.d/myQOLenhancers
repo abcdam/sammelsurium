@@ -19,7 +19,8 @@ alias lout='qdbus org.kde.ksmserver /KSMServer logout 0 0 0'
 
 
 alias rsc='rsync --progress --outbuf=N --human-readable --archive --verbose --recursive --partial --mkpath --stats'
-alias ll='ls -la'
+alias ll='ls -lA'
+alias llc='ll -CF'
 alias sscreen='split-screen-monitor.sh'
 alias webcam='sudo launch_webcam'
 alias mkubectl="mkube kubectl --"
@@ -33,27 +34,6 @@ alias mkubectl="mkube kubectl --"
 
 
 lsdu() { du -ah -d 1 | sort -h; }
-
-g2g() {
-  target="$HOME/dev/git";retval=0
-  case "$1" in
-    h)  target="${target}hub" ;;
-    l)  target="${target}lab" ;;
-    *)  retval=1              \
-          && printf "invalid arg. must be 'h' or 'l' but received: %s\n" "$1" >&2
-      ;;
-  esac
-  if [ $retval -eq 0 ]; then
-    if [ -d "$target" ]; then
-      cd "$target" || retval=$?
-    else
-      retval=1
-      printf "error: '%s' not a dir\n" "$target" >&2
-    fi
-  fi
-  unset target
-  return $retval
-}
 
 pp() {
   retval=0;a=run
@@ -98,6 +78,68 @@ mkctl() {
             mkubectl "$@"
             ;;
     esac
+}
+
+# NOTE: should probably move to external file
+comb() {
+  DIR=; PATTERN=; RETVAL=0; OPTIND=1
+  while getopts d: opt; do
+    case "$opt" in
+      d)
+        [ -d "$OPTARG" ] && DIR="$OPTARG" && continue
+        RETVAL=1
+        printf "error: '%s' not a dir" "$OPTARG"
+        break
+        ;;
+      \?)
+        RETVAL=1
+        printf "error: Invalid option or missing argument for '-%s'" "$OPTARG" >&2
+        break
+        ;;
+      *)
+        RETVAL=1
+        printf 'fatal: unreachable' >&2
+        break
+        ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+  if [ $RETVAL -eq 0 ]; then
+
+    PATTERN="${1:?'error: missing PATTERN argument'}"
+    PWD="${PWD:-$(pwd)}"
+    [ -z "$DIR" ] && DIR="$PWD" || DIR=$(realpath "$DIR")
+
+    grep --recursive --binary-files=without-match --files-with-matches --null \
+      . "$DIR" \
+      | xargs -0 awk -v pat="$PATTERN" -v prefix="$PWD/" '
+        function flush() {
+          if (matches) {
+            display_name = filename
+            if (index(display_name, prefix) == 1) {
+              display_name = substr(display_name, length(prefix) + 1)
+            }
+            printf "%-31s (%s)\n", display_name, matches
+          }
+        }
+        # for each file
+        FNR == 1 {
+            if (NR > 1) flush()
+            matches = ""
+            sep = ""
+            filename = FILENAME
+        }
+        index($0, pat) > 0 {
+          matches = matches sep FNR
+          sep = ","
+        }
+        END { flush() }
+    '
+  else
+    printf '\n'
+  fi
+  unset DIR PATTERN
+  return $RETVAL
 }
 
 
