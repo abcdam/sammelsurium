@@ -10,16 +10,16 @@
 # http://gondor.apana.org.au/~herbert/dash
 # https://pubs.opengroup.org/onlinepubs/007904875/utilities/xcu_chap01.html#tag_01
 
-_POSHER_LIB_WHITELIST='color yap misc file proc'
+_POSHER_LIB_WHITELIST='core color yap misc file proc env'
 _POSHER_RUNTIME_D="/tmp/posher.d/$$"
 
-export _POSHER_CTXT_STATE="${_POSHER_CTXT_STATE:-}"
+export _POSHER_CTXT_STATE=${_POSHER_CTXT_STATE:-}
 export POSHER_LIB_DIR='/usr/local/lib/posher.d'
 
 export __POSHER_ERR_MSG_PREFIX="[\033[1;31mFATAL\033[0m]"
 
 abs_path() {
-  curr_path="${1:-}"
+  curr_path=${1:-}
   is_param_set "$curr_path" 'strict' "" "abs_path(): requires non-null path param"
 
   while [ -L "$curr_path" ]; do
@@ -32,16 +32,14 @@ abs_path() {
   unset curr_path target_dir tmp_dir
 }
 
-is_cmd_available() {
-  command -v "${1:-}" > /dev/null
-}
+is_cmd_available() { command -v "${1:-}" > /dev/null  ;}
 
 # TODO docs
 is_param_set() {
-  param_to_check="${1:-}"
-  mode="${2:-lax}"
-  retval="${3:-64}"
-  err_msg="${4:-'is_param_set(): got unset/null param in strict mode'}"
+  param_to_check=${1-}
+  mode=${2:-lax}
+  retval=${3:-$__EXCODE_MISUSED_CMD}
+  err_msg=${4:-'is_param_set(): got unset/null param in strict mode'}
 
   case "$mode" in
     lax) [ -n "$param_to_check" ] && retval=0
@@ -51,7 +49,7 @@ is_param_set() {
     *)
   fmt="$__POSHER_ERR_MSG_PREFIX is_param_set(): wrong mode. (expected: {lax|strict} - got: %s)"
       printf "$fmt\n" "$mode" >&2
-      exit 64
+      exit $__EXCODE_MISUSED_CMD
       ;;
   esac
 
@@ -63,7 +61,7 @@ is_param_set() {
 # # $1 to append (total of 1 args)
 # # $2 with '-unshift' in $1 to prepend (total of 2 args)
 add_exitrap() {
-  retval=1
+  retval=$__EXCODE_MISUSED_CMD
   case "$#" in
     1) [ "$1" != "-unshift" ] && _POSHER_EXITRAP="${_POSHER_EXITRAP:+$_POSHER_EXITRAP; }$1" && retval=0;;
     2) [ "$1" = "-unshift" ]  && _POSHER_EXITRAP="$2${_POSHER_EXITRAP:+; $_POSHER_EXITRAP}" && retval=0;;
@@ -85,8 +83,7 @@ register_sigfile_p() {
 # $2 -> func selector
 get_sigfile_p() {
   printf '%s' "$__POSHER_SIG_FILE" && unset __POSHER_SIG_FILE \
-    || printf '%s/%s-%s.sig' "$_POSHER_RUNTIME_D" "$1" "$2"   \
-    || return 1
+    || printf '%s/%s-%s.sig' "$_POSHER_RUNTIME_D" "$1" "$2"
 }
 
 posher() {
@@ -122,7 +119,7 @@ load_posher() {
   while [ "$#" -gt 0 ]; do
     __posher_intern_source_if_not_available "$1" \
       && _POSHER_CTXT_STATE="${_POSHER_CTXT_STATE:+$_POSHER_CTXT_STATE:}$1" || retval=$?
-    [ $retval -ne 0 ] && [ $retval -ne 11 ] && __posher_intern_error_printer $retval
+    [ $retval -ne 0 ] && [ $retval -ne $__EXCODE_ALREADY_SOURCED ] && __posher_intern_error_printer $retval
     shift
   done
   unset IFS

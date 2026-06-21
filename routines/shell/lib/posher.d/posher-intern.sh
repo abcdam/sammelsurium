@@ -1,23 +1,26 @@
 #
 # Boring internals
 #
-mkdir -p "$_POSHER_RUNTIME_D"
+__EXCODE_GENERAL=1
+__EXCODE_ALREADY_SOURCED=3
+__EXCODE_UNSUPPORTED_LIB=5
+__EXCODE_NOT_A_FILE=7
+__EXCODE_NOT_A_DIR=11
+__EXCODE_UNSUPPORTED_ENV=13
+__EXCODE_MISUSED_CMD=64
 
-#   11: lib already sourced
-#   13: lib not whitelisted
-#   17: wrong filepath of whitelisted lib
-#   rsrv 19, 23, 29, 31, 37, 41, 43, 47, 53
-#
+mkdir -p "$_POSHER_RUNTIME_D"
 
 # TODO: evaluate usefulness and either centralize error code handling here or scrap whole concept
 __posher_intern_error_printer() {
   retval=$1
   shift
   case $retval in
-    13)  printf "error: lib id '%s' is not whitelisted in get-posher\nset of available libs: %s\n" \
+    $__EXCODE_UNSUPPORTED_LIB)
+        printf "error: lib id '%s' is not whitelisted in get-posher\nset of available libs: %s\n" \
           "$1" "{$(printf "%s|" $_POSHER_LIB_WHITELIST | sed 's/|$//')}" >&2
         ;;
-    17)  printf "error: posher lib '%s' not at expected location '%s'\n" \
+    $__EXCODE_NOT_A_FILE)  printf "error: posher lib '%s' not at expected location '%s'\n" \
           "$@" >&2
         ;;
     *)  printf "error: no error message defined for exit code '%d'\n" "$retval" >&2
@@ -33,7 +36,7 @@ __posher_intern_confirm_lib_not_in_runtime() {
     IFS=":"
     for loaded_lib in $_POSHER_CTXT_STATE; do
       [ "$loaded_lib" = "$1" ] \
-        && retval=11 && break
+        && retval=$__EXCODE_ALREADY_SOURCED && break
     done
   fi
   unset IFS loaded_lib
@@ -42,13 +45,13 @@ __posher_intern_confirm_lib_not_in_runtime() {
 
 
 __posher_intern_validate_lib_loc() {
-  retval=13
+  retval=$__EXCODE_UNSUPPORTED_LIB
   lib_path="${POSHER_LIB_DIR}/${1}-util.sh"
   IFS=" "
 
   for existing_lib in $_POSHER_LIB_WHITELIST; do
     if [ "$existing_lib" = "$1" ]; then
-      [ -f "$lib_path" ] && retval=0 || retval=17
+      [ -f "$lib_path" ] && retval=0 || retval=$__EXCODE_NOT_A_FILE
       printf '%s' "$lib_path"
       break
     fi
@@ -60,7 +63,7 @@ __posher_intern_validate_lib_loc() {
 
 __posher_intern_get_validated_lib_path() {
   retval=0
-  location="$(__posher_intern_validate_lib_loc "$1")"           \
+  location=$(__posher_intern_validate_lib_loc "$1")             \
     && printf '%s' "$location"                                  \
     || __posher_intern_error_printer $? "$1" "${location:-}"    \
     || retval=$? # error printer reflects exit code from prev. cmd
@@ -118,6 +121,7 @@ __posher_intern_restore_set_u() {
   # pop
   __POSHER_INTERN_SET_U_LIFO="${__POSHER_INTERN_SET_U_LIFO%?}"
   [ -z "${__POSHER_INTERN_SET_U_LIFO}" ] && unset __POSHER_INTERN_SET_U_LIFO
+  return 0
 }
 
 
