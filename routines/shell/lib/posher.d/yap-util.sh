@@ -52,10 +52,7 @@ strlen() { [ $# -eq 0 ] && stdoutln 0 || stdoutln "${#1}" ;}
 
 # get the visible char length of a string that might include
 # ansi colors/styles control sequences
-strlen_frfr() {
-    set -- "$(ansi_stripper "${1-}")" \
-      && stdoutln $(( ${#1} - 1 ))
-}
+strlen_frfr() { set -- "$(ansi_stripper "${1-}")" && stdoutln ${#1} ;}
 
 __statusline_worker() {
     _posher_status_msg=${1-}

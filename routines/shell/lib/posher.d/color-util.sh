@@ -59,10 +59,10 @@ __hue_worker() {
     _posher_ansi_color=$(__ANSI_get_color "$2")      \
       && _posher_ansi_style=$(__ANSI_get_style "$3") \
       && printf '%b[%d;%dm%s%b[0m'  \
-          "${__ANSI_ESCAPE_CHAR}"  \
-          "${_posher_ansi_style}"  \
-          "${_posher_ansi_color}"  \
-          "$1"                     \
+          "${__ANSI_ESCAPE_CHAR}"   \
+          "${_posher_ansi_style}"   \
+          "${_posher_ansi_color}"   \
+          "$1"                      \
           "${__ANSI_ESCAPE_CHAR}"
 }
 
