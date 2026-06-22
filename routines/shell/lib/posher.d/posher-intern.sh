@@ -1,13 +1,14 @@
 #
 # Boring internals
 #
-__EXCODE_GENERAL=1
-__EXCODE_ALREADY_SOURCED=3
-__EXCODE_UNSUPPORTED_LIB=5
-__EXCODE_NOT_A_FILE=7
-__EXCODE_NOT_A_DIR=11
-__EXCODE_UNSUPPORTED_ENV=13
-__EXCODE_MISUSED_CMD=64
+readonly __EXCODE_GENERAL=1
+readonly __EXCODE_ALREADY_SOURCED=3
+readonly __EXCODE_UNSUPPORTED_LIB=5
+readonly __EXCODE_NOT_A_FILE=7
+readonly __EXCODE_NOT_A_DIR=11
+readonly __EXCODE_UNSUPPORTED_ENV=13
+readonly __EXCODE_CMD_MISUSE=64
+readonly __EXCODE_CMD_NOT_FOUND=127
 
 mkdir -p "$_POSHER_RUNTIME_D"
 
@@ -30,16 +31,24 @@ __posher_intern_error_printer() {
 }
 
 
-__posher_intern_confirm_lib_not_in_runtime() {
-  retval=0
-  if  [ -n "$_POSHER_CTXT_STATE" ]; then
+__posher_intern_is_lib_in_runtime() {
+    retval=$__EXCODE_GENERAL
+    [ -n "$_POSHER_CTXT_STATE" ] || return $retval
+
+    _posher_lib_in_runtime_old_ifs_state=${IFS+set}
+    _posher_lib_in_runtime_old_ifs_value=${IFS-}
     IFS=":"
     for loaded_lib in $_POSHER_CTXT_STATE; do
       [ "$loaded_lib" = "$1" ] \
-        && retval=$__EXCODE_ALREADY_SOURCED && break
+        && retval=0 && break
     done
-  fi
-  unset IFS loaded_lib
+    [ "${_posher_lib_in_runtime_old_ifs_state-}" = set ] \
+      && IFS=$_posher_lib_in_runtime_old_ifs_value       \
+      || unset IFS
+
+  unset loaded_lib                            \
+        _posher_lib_in_runtime_old_ifs_state  \
+        _posher_lib_in_runtime_old_ifs_value
   return $retval
 }
 
@@ -47,15 +56,26 @@ __posher_intern_confirm_lib_not_in_runtime() {
 __posher_intern_validate_lib_loc() {
   retval=$__EXCODE_UNSUPPORTED_LIB
   lib_path="${POSHER_LIB_DIR}/${1}-util.sh"
+  _posher_validate_lib_loc_old_ifs_state=${IFS+set}
+  _posher_validate_lib_loc_old_ifs_value=${IFS-}
   IFS=" "
 
   for existing_lib in $_POSHER_LIB_WHITELIST; do
     if [ "$existing_lib" = "$1" ]; then
       [ -f "$lib_path" ] && retval=0 || retval=$__EXCODE_NOT_A_FILE
-      printf '%s' "$lib_path"
+      printf '%s' "$lib_path" || retval=$?
       break
     fi
-  done; unset IFS existing_lib lib_path
+  done;
+
+  [ "${_posher_validate_lib_loc_old_ifs_state-}" = set ] \
+    && IFS=$_posher_validate_lib_loc_old_ifs_value       \
+    || unset IFS
+
+  unset existing_lib                            \
+        lib_path                                \
+        _posher_validate_lib_loc_old_ifs_state  \
+        _posher_validate_lib_loc_old_ifs_value
 
   return $retval
 }
@@ -74,33 +94,26 @@ __posher_intern_get_validated_lib_path() {
 
 # $1 -> lib id
 __posher_intern_source_if_not_available() {
-  __posher_intern_confirm_lib_not_in_runtime "$1" \
-  && . "$(__posher_intern_get_validated_lib_path "$1")"
+  __posher_intern_is_lib_in_runtime "$1" \
+  || . "$(__posher_intern_get_validated_lib_path "$1")"
 }
 
 
-__posher_intern_run_isolated() {
-  (
+__posher_intern_run_isolated() (
     retval=0
-    if __posher_intern_source_if_not_available "$1"  \
-      && is_cmd_available "$2"; then
+    __posher_intern_source_if_not_available "$1"
+    if ! is_cmd_available "$2"; then
+      retval=$__EXCODE_CMD_NOT_FOUND
+      printf "error: func '%s' does not exist in lib '%s'\n"    \
+        "$2" "$1" >&2 || :
+    else
         fun_selector="$2"
         register_sigfile_p "$1" "$fun_selector"
         shift 2
-        $fun_selector "$@" || retval=$?
-        return $retval
-    fi
-    if __posher_intern_confirm_lib_not_in_runtime "$1" || retval=$?; then
-      printf "error: failed to load lib '%s' for func '%s'\n"   \
-        "$1" "$2" >&2
-    else
-      retval=$?
-      printf "error: func '%s' does not exist in lib '%s'\n"    \
-        "$2" "$1" >&2
+        $fun_selector "$@" && retval=$? || retval=$?
     fi
     exit $retval
-  )
-}
+)
 
 # *should* be reentrancy-safe
 __posher_intern_enable_set_u() {

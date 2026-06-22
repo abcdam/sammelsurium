@@ -1,13 +1,14 @@
-__stdout_sep_worker() {
-    __old_ifs="$IFS"
-    IFS="$1"
-    shift && printf '%s' "$*"
-    IFS="$__old_ifs"
-}
 stdout_sep() {
-    [ $# -eq 0 ] && return 0
-    __stdout_sep_worker "$@" && _lib_retval=$? || _lib_retval=$?
-    unset __old_ifs
+    [ $# -le 1 ] && return 0
+    _posher_stdout_sep_old_ifs_state=${IFS+set}
+    _posher_stdout_sep_old_ifs_value=${IFS-}
+    IFS=$1
+
+    shift && printf '%s' "$*" && _lib_retval=$? || _lib_retval=$?
+    [ "${_posher_stdout_sep_old_ifs_state-}" = set ] \
+      && IFS=$_posher_stdout_sep_old_ifs_value       \
+      || unset IFS
+    unset _posher_stdout_sep_old_ifs_state _posher_stdout_sep_old_ifs_value
     return $_lib_retval
 }
 stderr_sep(){ stdout_sep "$@" >&2 ;}

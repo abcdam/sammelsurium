@@ -8,7 +8,7 @@ __prepend_PATH_worker() {
         *)  return $__EXCODE_GENERAL                      ;;
       esac
       # reject root path
-      [ -n "$_posher_p" ] || return $__EXCODE_GENERAL
+      [ -n "$_posher_p" ] && [ "$_posher_p" != '/' ] || return $__EXCODE_GENERAL
       [ -d "$_posher_p" ] || return $__EXCODE_NOT_A_DIR
 
       case ":$_posher_sanitized:\n:$PATH:" in

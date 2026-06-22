@@ -1,5 +1,9 @@
 load_posher core
 
+readonly __ANSI_ESCAPE_CHAR=$(printf '\033')
+
+
+
 __ANSI_get_style() {
     _posher_retval=0
 
@@ -11,7 +15,7 @@ __ANSI_get_style() {
       i|italic)       stdout 3;;
 
       *)
-        _posher_retval=$__EXCODE_MISUSED_CMD
+        _posher_retval=$__EXCODE_CMD_MISUSE
         stderr  "invalid font modifier" \
                 "$(fmt_assertmsg '{b|f|u|n|i}' "${1-}")"
         ;;
@@ -42,7 +46,7 @@ __ANSI_get_color() {
       tw|truewhite)     stdout 97;;
 
       *)
-        _posher_retval=$__EXCODE_MISUSED_CMD
+        _posher_retval=$__EXCODE_CMD_MISUSE
         stderr  "invalid color option"  \
                 "$(fmt_assertmsg 'supported color id' "${1-}")"
         ;;
@@ -54,10 +58,12 @@ __ANSI_get_color() {
 __hue_worker() {
     _posher_ansi_color=$(__ANSI_get_color "$2")      \
       && _posher_ansi_style=$(__ANSI_get_style "$3") \
-      && printf '\033[%s;%sm%s\033[0m'  \
-          "${_posher_ansi_style}"       \
-          "${_posher_ansi_color}"       \
-          "$1"
+      && printf '%b[%d;%dm%s%b[0m'  \
+          "${__ANSI_ESCAPE_CHAR}"  \
+          "${_posher_ansi_style}"  \
+          "${_posher_ansi_color}"  \
+          "$1"                     \
+          "${__ANSI_ESCAPE_CHAR}"
 }
 
 # what:
@@ -73,8 +79,33 @@ __hue_worker() {
 #
 hue() {
     [ -z "${1-}" ] && return 0
+    if [ -n "${NO_COLOR-}" ]; then
+      stdout "$1"
+      return $?
+    fi
+
     __hue_worker "$1" "${2:-white}" "${3:-normal}"  \
         && _posher_retval=$? || _posher_retval=$?
     unset _fmt_pretty_ansi_color _fmt_pretty_ansi_style
     return $_posher_retval
+}
+
+# what:
+#   strips ansi control sequences from input text.
+#   covers graphical color/style mode
+#
+# api:
+#   $1: input string
+ansi_stripper() {
+    while :; do case ${1-} in
+        *"${__ANSI_ESCAPE_CHAR}["*m*)
+          _posher_pref=${1%%"$__ANSI_ESCAPE_CHAR"*}
+          _posher_rest=${1#*"${__ANSI_ESCAPE_CHAR}["}
+          set -- "$_posher_pref${_posher_rest#*m}"
+                  ;;
+        *) break  ;;
+      esac;
+    done
+    unset _posher_pref _posher_rest
+    stdoutln "${1-}"
 }

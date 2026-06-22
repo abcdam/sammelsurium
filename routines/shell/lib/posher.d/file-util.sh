@@ -46,7 +46,7 @@ pathtest() (
       can_write) flag="-w" ;;
       can_exec)  flag="-x" ;;
       *)
-        retval=$__EXCODE_MISUSED_CMD
+        retval=$__EXCODE_CMD_MISUSE
         stderrln 'invalid pathtest() command:' "'$subcmd'"
         ;;
     esac

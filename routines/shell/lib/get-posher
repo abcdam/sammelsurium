@@ -10,13 +10,13 @@
 # http://gondor.apana.org.au/~herbert/dash
 # https://pubs.opengroup.org/onlinepubs/007904875/utilities/xcu_chap01.html#tag_01
 
-_POSHER_LIB_WHITELIST='core color yap misc file proc env'
-_POSHER_RUNTIME_D="/tmp/posher.d/$$"
+readonly _POSHER_LIB_WHITELIST='core color yap misc file proc env'
+readonly _POSHER_RUNTIME_D="/tmp/posher.d/$$"
 
-export _POSHER_CTXT_STATE=${_POSHER_CTXT_STATE:-}
-export POSHER_LIB_DIR='/usr/local/lib/posher.d'
+_POSHER_CTXT_STATE=""
+readonly POSHER_LIB_DIR='/usr/local/lib/posher.d'
 
-export __POSHER_ERR_MSG_PREFIX="[\033[1;31mFATAL\033[0m]"
+readonly __POSHER_ERR_MSG_PREFIX="[\033[1;31mFATAL\033[0m]"
 
 abs_path() {
   curr_path=${1:-}
@@ -38,7 +38,7 @@ is_cmd_available() { command -v "${1:-}" > /dev/null  ;}
 is_param_set() {
   param_to_check=${1-}
   mode=${2:-lax}
-  retval=${3:-$__EXCODE_MISUSED_CMD}
+  retval=${3:-$__EXCODE_CMD_MISUSE}
   err_msg=${4:-'is_param_set(): got unset/null param in strict mode'}
 
   case "$mode" in
@@ -49,7 +49,7 @@ is_param_set() {
     *)
   fmt="$__POSHER_ERR_MSG_PREFIX is_param_set(): wrong mode. (expected: {lax|strict} - got: %s)"
       printf "$fmt\n" "$mode" >&2
-      exit $__EXCODE_MISUSED_CMD
+      exit $__EXCODE_CMD_MISUSE
       ;;
   esac
 
@@ -61,7 +61,7 @@ is_param_set() {
 # # $1 to append (total of 1 args)
 # # $2 with '-unshift' in $1 to prepend (total of 2 args)
 add_exitrap() {
-  retval=$__EXCODE_MISUSED_CMD
+  retval=$__EXCODE_CMD_MISUSE
   case "$#" in
     1) [ "$1" != "-unshift" ] && _POSHER_EXITRAP="${_POSHER_EXITRAP:+$_POSHER_EXITRAP; }$1" && retval=0;;
     2) [ "$1" = "-unshift" ]  && _POSHER_EXITRAP="$2${_POSHER_EXITRAP:+; $_POSHER_EXITRAP}" && retval=0;;
@@ -114,16 +114,26 @@ posher() {
 # $@ -> lib ids
 load_posher() {
   __posher_intern_enable_set_u
-  retval=0
+
+  _load_posher_old_ifs_state=${IFS+set}
+  _load_posher_old_ifs_value=${IFS-}
   IFS=" "
+
   while [ "$#" -gt 0 ]; do
-    __posher_intern_source_if_not_available "$1" \
-      && _POSHER_CTXT_STATE="${_POSHER_CTXT_STATE:+$_POSHER_CTXT_STATE:}$1" || retval=$?
-    [ $retval -ne 0 ] && [ $retval -ne $__EXCODE_ALREADY_SOURCED ] && __posher_intern_error_printer $retval
+    __posher_intern_source_if_not_available "$1"                            \
+      && _POSHER_CTXT_STATE="${_POSHER_CTXT_STATE:+$_POSHER_CTXT_STATE:}$1" \
+      && retval=$?                                                          \
+      || retval=$?
+    [ $retval -ne 0 ] && [ $retval -ne $__EXCODE_ALREADY_SOURCED ] \
+      && __posher_intern_error_printer $retval
     shift
   done
-  unset IFS
-  export _POSHER_CTXT_STATE
+
+  [ "${_load_posher_old_ifs_state-}" = set ]  \
+      && IFS=$_load_posher_old_ifs_value      \
+      || unset IFS
+
+  unset _load_posher_old_ifs_value _load_posher_old_ifs_state
   __posher_intern_restore_set_u
 }
 

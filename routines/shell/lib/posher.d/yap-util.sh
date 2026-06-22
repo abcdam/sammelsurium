@@ -33,7 +33,7 @@ __whitespace_pad() {
 }
 
 __set_status_outcome() {
-    stdoutln "$(__whitespace_pad "$1" "$2")" $(hue "${2-}" gray) \
+    stdoutln "$(__whitespace_pad "$1" "$2")" $(hue "${3-}" gray) \
       && _posher_retval=$? || _posher_retval=$?
     unset _posher_tag_styled
 
@@ -46,14 +46,27 @@ status_warn()   { __set_status_outcome WARN  yellow      "${1-}" ;}
 status_fail()   { __set_status_outcome FAIL  red         "${1-}" ;}
 status_info()   { __set_status_outcome INFO  lightblue   "${1-}" ;}
 
+# Convenience function to get charcount for a string.
+# Inline it directly if the length must be captured in a hot loop
+strlen() { [ $# -eq 0 ] && stdoutln 0 || stdoutln "${#1}" ;}
+
+# get the visible char length of a string that might include
+# ansi colors/styles control sequences
+strlen_frfr() {
+    set -- "$(ansi_stripper "${1-}")" \
+      && stdoutln $(( ${#1} - 1 ))
+}
+
 __statusline_worker() {
     _posher_status_msg=${1-}
     [ -z "${2-}" ] \
       && _posher_status_msg=" - $_posher_status_msg"
 
     # default terminal width 80 columns, 6 chars reserved for outcome status
-    while [ "${#_posher_status_msg}" -lt 74 ]; do
+    _posher_dots_needed=$(( 74 - $(strlen_frfr "$_posher_status_msg") ))
+    while [ $_posher_dots_needed -gt 0 ]; do
         _posher_status_msg="${_posher_status_msg}."
+        _posher_dots_needed=$(( _posher_dots_needed - 1))
     done
 
     stdout "$_posher_status_msg"
@@ -67,7 +80,7 @@ __statusline_worker() {
 # expose helpful information to the user during sequential multistep logic
 statusline() {
     __statusline_worker "$@" && _posher_retval=$? || _posher_retval=$?
-    unset _posher_status_msg
+    unset _posher_status_msg _posher_dots_needed
     return $_posher_retval
 }
 
