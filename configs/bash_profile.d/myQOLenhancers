@@ -18,14 +18,31 @@ alias lout='qdbus org.kde.ksmserver /KSMServer logout 0 0 0'
 #####
 
 
-alias rsc='rsync --progress --outbuf=N --human-readable --archive --verbose --recursive --partial --mkpath --stats'
+
 alias ll='ls -lA'
 alias llc='ll -CF'
 alias sscreen='split-screen-monitor.sh'
 alias webcam='sudo launch_webcam'
 alias mkubectl="mkube kubectl --"
 
+alias rsc='rsync  --outbuf=N  \
+                  --archive   \
+                  --mkpath    \
+                  --recursive \
+                  --partial   \
+                  --human-readable --verbose --progress --stats'
 
+alias glog-nice='git --no-pager \
+        log                     \
+          --reverse             \
+          --color=always        \
+          --pretty=format:"%C(yellow)%h%Creset %C(magenta)%ad%Creset %s" \
+          --date=short          \
+          | less -R +G'
+
+alias montemp='ttmux -t exec            \
+  "watch -n 1 sensors asusec-isa-0000"  \
+  "nvmon"'
 #---------------------------------------------------------------------#
 
 ###==================================================================##
@@ -36,19 +53,24 @@ alias mkubectl="mkube kubectl --"
 lsdu() { du -ah -d 1 | sort -h; }
 
 pp() {
-  retval=0;a=run
-  case "$1" in
-    d)      a="$a dev"                ;;
-    c)      a="$a check"              ;;
-    b)      a="$a build"              ;;
-    p)      a="$a preview"            ;;
-    a)      a='add -D'                ;;
-    lsv)    a='outdated --compatible' ;;
-    *)      a="$1"                    ;;
-  esac; shift
-  pnpm $a "$@" || retval=$?
-  unset a
-  return $retval
+    case $1 in
+      d)  shift; set -- dev     "$@"  ;;
+      c)  shift; set -- check   "$@"  ;;
+      b)  shift; set -- build   "$@"  ;;
+      p)  shift; set -- preview "$@"  ;;
+      a)  shift; set -- add -D  "$@"  ;;
+      lsv)
+        shift
+        set -- outdated --compatible "$@"
+        ;;
+      ac)
+        shift
+        pp a --save-catalog-name "$@"
+        return $?
+        ;;
+      *) ;;
+    esac;
+    pnpm "$@"
 }
 
 mkctl() {
