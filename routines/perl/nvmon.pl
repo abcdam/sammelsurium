@@ -1,84 +1,81 @@
 #!/usr/bin/env perl
 use v5.36.0;
 
-use IPC::Run qw( start new_chunker timeout);
-use constant SECOND_FACTOR  => 1e4;
-use constant TIMEOUT_FACTOR => 10;
+use lib './lib';
 
+use CmdGazer;
 
-sub make_producer {
-    my($cfg, @consumers) = @_;
-    sub {
-        print "\e[H\e[2J";
-        say $cfg->{title};
-        local $_ = shift;
-        chomp;
-        my($offset, @stack) = (
-            scalar @consumers,
-            map {s/^\s+|\s+$//r} split ','
-        );
-        return unless $offset-- == @stack;
-        for (@consumers) {
-            defined and $_->(splice @stack, 0, @stack - $offset);
-            $offset--
+use File::Basename;
+use POSIX qw(strftime);
+
+use constant SECOND_MS  => 1e3;
+use constant ANSI_RESET => "\e[H\e[2J";
+
+my $period = shift // SECOND_MS;
+
+## no critic (Subroutines::RequireArgUnpacking)
+sub compile_config {
+    map {{(
+        query => shift @$_,
+        scalar @$_
+        ? (
+            fstr => (sprintf '%-6s', shift @$_)
+              . '%4d '
+              . (shift @$_) // ''
+          )
+        : ()
+    )}} @_
+}
+
+my @queries = compile_config
+  [qw(temperature.gpu oven °C)],
+  ['power.draw'],
+  [qw(pstate power W/%s)],
+  [qw(fan.speed fans %%)],
+  [qw(memory.used vram MiB)];
+
+my $gaze = CmdGazer::init(
+    cmd => {
+        bin  => 'nvidia-smi',
+        args => [
+            '--loop-ms', $period,
+            '--format', join(',', qw(csv noheader nounits)),
+            '--query-gpu', join ',', map {$_->{query}} @queries
+        ]
+    },
+    parser => sub {
+        return if my $offset =
+          (my @stack = map {s/^\s+|\s+$//r} split ',')
+          - @queries;
+
+        for (@queries) {
+            $offset++;
+            push @stack,
+              sprintf $_->{fstr}, splice @stack, 0, $offset
+              and $offset = 0
+              if exists $_->{fstr}
         }
+        @stack
+    },
+);
+
+
+my $printer = do {
+    my $ftitle = (
+        sprintf 'Every %.2fs: %s'
+        , $period / SECOND_MS
+        , basename $0, '.pl'
+    ) . "%40s\n";
+    my $cb = sub {
+        sprintf "$ftitle",
+          strftime '| %a %y/%m/%d %T'
+          , localtime
     };
-}
-
-
-sub configure {
-    my($q, %cfg) = @_;
-    my($l, $a)   = @cfg{qw(label append)};
-    {
-        query   => $q,
-        consume => $l && do {
-            my $fmt = sprintf('%-6s', $l) . '%4d ' . $a;
-            sub {say sprintf $fmt, @_}
-        }
+    sub {
+        return unless @$_;
+        print ANSI_RESET;
+        say for $cb->(), @$_
     }
-}
+};
 
-my @metric_handlers = (
-    configure(
-        'temperature.gpu',
-        label  => 'oven',
-        append => '°C',
-    ),
-    configure('power.draw'),
-    configure(
-        'pstate',
-        label  => 'power',
-        append => 'W/%s',
-    ),
-    configure(
-        'fan.speed',
-        label  => 'fans',
-        append => '%%',
-    ),
-    configure(
-        'memory.used',
-        label  => 'vram',
-        append => 'MiB',
-    ),
-);
-
-my $INTERVAL_MS = shift // SECOND_FACTOR;
-my $harness     = start(
-    [
-        'nvidia-smi',
-        '--loop-ms', $INTERVAL_MS,
-        '--format', join(',', qw(csv noheader nounits)),
-        '--query-gpu', join ',', map {$_->{query}} @metric_handlers
-    ],
-    '>',
-    new_chunker,
-    make_producer(
-        { title => sprintf("Every %.2fs\n", $INTERVAL_MS / SECOND_FACTOR) },
-        map {$_->{consume}} @metric_handlers
-    ),
-    timeout($INTERVAL_MS * TIMEOUT_FACTOR)
-);
-
-$harness->pump
-  while ($harness->pumpable)
-  or $harness->finish;
+$printer->() while <$gaze>
