@@ -15,21 +15,21 @@ USAGE="Usage: $0 marker=[0-9] | visibility=[0-9]"
 load_posher yap
 
 ### HELPER
-ipc()         { i3-msg ${1:?'missing args to i3-msg'}; }
+ipc()         { i3-msg ${1:?'missing args to i3-msg'} ;}
 
-mark_exists() { ipc "${2:-} -t get_marks" 2>/dev/null | grep -q "\"$1\""; }
-stop_float()  { ipc "$1 floating disable";  }
-scratchify()  { ipc "$1 move scratchpad";   }
-has_mark()    { mark_exists "$1" 'focus';   }
-v_toggle()    { ipc "$1 scratchpad show";   }
-unmark()      { ipc "$1 unmark $2";         }
-mark()        { ipc "mark $1";              }
-pshh()        { "$@" >/dev/null 2>&1;       }
+mark_exists() { ipc "${2:-} -t get_marks" 2>/dev/null | grep -q "\"$1\""  ;}
+stop_float()  { ipc "$1 floating disable" ;}
+scratchify()  { ipc "$1 move scratchpad"  ;}
+has_mark()    { mark_exists "$1" 'focus'  ;}
+v_toggle()    { ipc "$1 scratchpad show"  ;}
+unmark()      { ipc "$1 unmark $2"        ;}
+mark()        { ipc "mark $1"             ;}
+pshh()        { "$@" >/dev/null 2>&1      ;}
 ## END HELPER
 
 ### FUN
 marker() {
-  mark_id="$1"; target_id="$2"
+  mark_id=$1; target_id=$2
   err_postf="with mark '${mark_id}'"
   ft='failed to'
   if has_mark "$mark_id"; then
@@ -48,11 +48,11 @@ marker() {
   return 0
 }
 
-visibility() { mark_exists "$1" && pshh v_toggle "$2" || true; }
+visibility() { mark_exists "$1" && pshh v_toggle "$2" || :  ;}
 ## END FUN
 
 ### INPUT VALIDATION
-case "$1" in
+case $1 in
     *=*)  action=${1%%=*}
           keyboard_digit=${1#*=}
     ;;
@@ -68,7 +68,7 @@ case $keyboard_digit in
       *)  throw "$USAGE - not a digit '$keyboard_digit'"
     ;;
 esac
-case "$action" in marker|visibility)
+case $action in marker|visibility)
     ;;
       *)  throw "$USAGE - unknown action: '$action'"
     ;;

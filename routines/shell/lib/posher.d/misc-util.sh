@@ -1,9 +1,10 @@
 load_posher core
 
-is_root()     { [ "$(id --user)" -eq 0 ]  ;}
-verify_root() { is_root || posher yap throw 'must be root'  ;}
 
-timestamp()   { stdout "$(date +"%Y%m%d%H%M")"  ;}
+
+# year + month + day + hour + minute + second
+# e.g. 20260630023713
+timestamp()   { stdout $(date +%Y%m%d%H%M%S)  ;}
 
 get_os() {
   case $(uname -s) in
@@ -17,7 +18,7 @@ get_os() {
 }
 
 
-is_linux() { [ "${1:-$(get_os)}" = "linux" ] ;}
+is_linux() { [ "${1:-$(get_os)}" = linux ] ;}
 
 get_OS_name(){ is_linux && sed -n 's/^ID=//p' /etc/os-release ;}
 

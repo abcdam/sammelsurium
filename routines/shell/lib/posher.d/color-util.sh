@@ -55,7 +55,7 @@ __hue_worker() {
           "${_posher_ansi_style}"   \
           "${_posher_ansi_color}"   \
           "$1"                      \
-          "${__ANSI_ESCAPE_CHAR}"
+          "${__ANSI_ESCAPE_CHAR}"   \
       && _hue_worker_ec=$?          \
       || _hue_worker_ec=$?
 
@@ -93,7 +93,8 @@ hue() {
 # api:
 #   $1: input string
 ansi_stripper() {
-    while :; do case ${1-} in
+  [ -n "${1-}" ] || return 0
+    while :; do case $1 in
         *"${__ANSI_ESCAPE_CHAR}["*m*)
           _posher_pref=${1%%"$__ANSI_ESCAPE_CHAR"*}
           _posher_rest=${1#*"${__ANSI_ESCAPE_CHAR}["}
@@ -103,5 +104,5 @@ ansi_stripper() {
       esac;
     done
     unset _posher_pref _posher_rest
-    stdoutln "${1-}"
+    stdoutln "$1"
 }

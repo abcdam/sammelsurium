@@ -52,3 +52,7 @@ prepend_PATH() {
                 _posher_sanitized
     return "$1"
 }
+
+
+is_root()     { [ "$(id --user)" -eq 0 ]  ;}
+assert_root() { is_root || posher yap throw 'must be root' || exit $? ;}

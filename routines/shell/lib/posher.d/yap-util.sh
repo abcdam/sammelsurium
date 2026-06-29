@@ -7,6 +7,8 @@ ramble() {
     printf "%s%s\n" "$prefix" "$1"
 }
 
+parrot(){ [ -z "${1-}" ] || printf '%*s' "$1" '' | tr ' ' "${2- }" ;}
+
 __whitespace_pad_worker() {
     _posher_txt=${1-}
     _posher_char_count=${#_posher_txt}
@@ -32,34 +34,30 @@ __whitespace_pad() {
     _posher_tag_padded=$(__whitespace_pad_worker "$1" 4) || :
 
     _posher_tag_styled=$(hue "${_posher_tag_padded:-$1}" "$2" bold) || :
-    unset _posher_tag_padded
+    set -- "$1" "$_posher_tag_styled"
+    unset _posher_tag_padded _posher_tag_styled
 
-    printf '[%s]' "${_posher_tag_styled:-$1}";
+    printf '[%s]' "${2:-$1}"
 }
 
 __set_status_outcome() {
-    stdoutln "$(__whitespace_pad "$1" "$2")" $(hue "${3-}" gray) \
-      && _EX_set_status_outcome=$? || _EX_set_status_outcome=$?
-
-    set --    "$_EX_set_status_outcome" \
-      && unset  _EX_set_status_outcome  \
-                _posher_tag_styled
-    return "$1"
+    stdoutln  "$(__whitespace_pad "$1" "$2")" \
+              ${3:+"$(hue "$3" gray)"}
 }
 
 # $1: optional txt -> sneak in relevant info after execution step resolved
-status_ok()     { __set_status_outcome FINE  lightgreen  "${1-}" ;}
-status_warn()   { __set_status_outcome WARN  yellow      "${1-}" ;}
-status_fail()   { __set_status_outcome FAIL  red         "${1-}" ;}
-status_info()   { __set_status_outcome INFO  lightblue   "${1-}" ;}
+status_ok()   { __set_status_outcome FINE  lightgreen  "${1-}" ;}
+status_warn() { __set_status_outcome WARN  yellow      "${1-}" ;}
+status_fail() { __set_status_outcome FAIL  red         "${1-}" ;}
+status_info() { __set_status_outcome INFO  lightblue   "${1-}" ;}
 
 # Convenience function to get charcount for a string.
 # Inline it directly if the length must be captured in a hot loop
-strlen() { [ $# -eq 0 ] && stdoutln 0 || stdoutln "${#1}" ;}
+strlen(){ [ $# -eq 0 ] && stdoutln 0 || stdoutln ${#1} ;}
 
 # get the visible char length of a string that might include
 # ansi colors/styles control sequences
-strlen_frfr() { set -- "$(ansi_stripper "${1-}")" && stdoutln ${#1} ;}
+strlen_frfr(){ strlen "$(ansi_stripper "${1-}")"       ;}
 
 __statusline_worker() {
     _posher_status_msg=${1-}
