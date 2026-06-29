@@ -5,10 +5,10 @@ __prepend_PATH_worker() {
     for _posher_p; do
       case $_posher_p in
         /*) _posher_p=${_posher_p%%"${_posher_p##*[!/]}"} ;;
-        *)  return $__EXCODE_GENERAL                      ;;
+        *)  return $__EXCODE                              ;;
       esac
       # reject root path
-      [ -n "$_posher_p" ] && [ "$_posher_p" != '/' ] || return $__EXCODE_GENERAL
+      [ -n "$_posher_p" ] && [ "$_posher_p" != '/' ] || return $__EXCODE
       [ -d "$_posher_p" ] || return $__EXCODE_NOT_A_DIR
 
       case ":$_posher_sanitized:\n:$PATH:" in
@@ -37,15 +37,18 @@ __prepend_PATH_worker() {
 #       - exit code 11: one of the items is not a directory
 #
 prepend_PATH() {
-    [ -n "${1-}" ] || return $__EXCODE_GENERAL
+    [ -n "${1-}" ] || return $__EXCODE
 
-    __prepend_PATH_worker "$@" && _posher_retval=$? || _posher_retval=$?
+    __prepend_PATH_worker "$@" && _EX_prepend_PATH=$? || _EX_prepend_PATH=$?
 
-    [ "$_posher_retval" -eq 0 ]                             \
+    [ "$_EX_prepend_PATH" -eq 0 ]                           \
       && [ -n "$_posher_sanitized" ]                        \
       && export PATH="${_posher_sanitized}${PATH:+:$PATH}"  \
       || :
 
-    unset _posher_p _posher_sanitized
-    return $_posher_retval
+    set --    "$_EX_prepend_PATH" \
+      && unset  _EX_prepend_PATH  \
+                _posher_p         \
+                _posher_sanitized
+    return "$1"
 }

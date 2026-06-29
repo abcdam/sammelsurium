@@ -5,8 +5,6 @@ readonly __ANSI_ESCAPE_CHAR=$(printf '\033')
 
 
 __ANSI_get_style() {
-    _posher_retval=0
-
     case ${1-} in
       b|bold)         stdout 1;;
       f|faint)        stdout 2;;
@@ -15,18 +13,14 @@ __ANSI_get_style() {
       i|italic)       stdout 3;;
 
       *)
-        _posher_retval=$__EXCODE_CMD_MISUSE
         stderr  "invalid font modifier" \
-                "$(fmt_assertmsg '{b|f|u|n|i}' "${1-}")"
+                "$(fmt_assertmsg '{b|f|u|n|i}' "${1-}")" || :
+        return $__EXCODE_CMD_MISUSE
         ;;
     esac
-
-    return $_posher_retval
 }
 
 __ANSI_get_color() {
-    _posher_retval=0
-
     case ${1-} in
       w|white)          stdout 37;;
       r|red)            stdout 31;;
@@ -46,13 +40,11 @@ __ANSI_get_color() {
       tw|truewhite)     stdout 97;;
 
       *)
-        _posher_retval=$__EXCODE_CMD_MISUSE
         stderr  "invalid color option"  \
-                "$(fmt_assertmsg 'supported color id' "${1-}")"
+                "$(fmt_assertmsg 'supported color id' "${1-}")" || :
+        return $__EXCODE_CMD_MISUSE
         ;;
     esac
-
-    return $_posher_retval
 }
 
 __hue_worker() {
@@ -64,6 +56,14 @@ __hue_worker() {
           "${_posher_ansi_color}"   \
           "$1"                      \
           "${__ANSI_ESCAPE_CHAR}"
+      && _hue_worker_ec=$?          \
+      || _hue_worker_ec=$?
+
+  set --    "$_hue_worker_ec"     \
+    && unset  _hue_worker_ec      \
+              _posher_ansi_color  \
+              _posher_ansi_style
+    return "$1"
 }
 
 # what:
@@ -78,16 +78,12 @@ __hue_worker() {
 #       -> (b)old, (f)aint, (u)nderline, (n)ormal, (i)talic
 #
 hue() {
-    [ -z "${1-}" ] && return 0
-    if [ -n "${NO_COLOR-}" ]; then
-      stdout "$1"
-      return $?
-    fi
+    [ -n "${1-}" ] || return 0
 
-    __hue_worker "$1" "${2:-white}" "${3:-normal}"  \
-        && _posher_retval=$? || _posher_retval=$?
-    unset _fmt_pretty_ansi_color _fmt_pretty_ansi_style
-    return $_posher_retval
+    if [ "${NO_COLOR+set}" = set ]
+        then __hue_worker "$1" "${2:-white}" "${3:-normal}"
+        else stdout "$1"
+    fi
 }
 
 # what:

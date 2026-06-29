@@ -1,15 +1,19 @@
 stdout_sep() {
-    [ $# -le 1 ] && return 0
-    _posher_stdout_sep_old_ifs_state=${IFS+set}
-    _posher_stdout_sep_old_ifs_value=${IFS-}
+    [ $# -gt 1 ] || return 0
+    _stdout_sep_ifs_state=${IFS+set}
+    _stdout_sep_ifs_value=${IFS-}
     IFS=$1
 
-    shift && printf '%s' "$*" && _lib_retval=$? || _lib_retval=$?
-    [ "${_posher_stdout_sep_old_ifs_state-}" = set ] \
-      && IFS=$_posher_stdout_sep_old_ifs_value       \
+    shift && printf '%s' "$*" && _EX_stdout_sep=$? || _EX_stdout_sep=$?
+    [ "${_stdout_sep_ifs_state-}" = set ] \
+      && IFS=$_stdout_sep_ifs_value       \
       || unset IFS
-    unset _posher_stdout_sep_old_ifs_state _posher_stdout_sep_old_ifs_value
-    return $_lib_retval
+
+    set --    "$_EX_stdout_sep"           \
+      && unset  _EX_stdout_sep            \
+                _lib_stdout_sep_ifs_state \
+                _stdout_sep_ifs_value
+    return "$1"
 }
 stderr_sep(){ stdout_sep "$@" >&2 ;}
 

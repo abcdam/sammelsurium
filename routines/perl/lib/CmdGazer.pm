@@ -8,19 +8,24 @@ use Carp;
 use File::Which;
 use IPC::Run qw(start new_chunker timeout harness);
 
-use constant SECOND_FACTOR  => 1e3;
-use constant TIMEOUT_FACTOR => 10;
-
 my %INSTANCE;
 
-## no critic (Variables::RequireLocalizedPunctuationVars)
-$SIG{TERM} = $SIG{INT} = sub {
-    warn sprintf " Received SIG%s\n", shift;
-    defined and $_->{terminate}->(force => 1)
-      for delete @INSTANCE{ keys %INSTANCE };
-    exit 1;
-};
 
+## no critic (Variables::RequireLocalizedPunctuationVars)
+$SIG{TERM} = $SIG{INT} = do {
+    my %old_handlers = %SIG{qw(INT TERM)};
+    sub {
+        my $signal = shift;
+        defined and $_->{terminate}->(force => 1)
+          for delete @INSTANCE{ keys %INSTANCE };
+        if (defined(my $oh = $old_handlers{$signal})) {
+            return if $oh eq 'IGNORE';
+            return $oh->($signal) if ref $oh eq 'CODE';
+        }
+        $SIG{$signal} = 'DEFAULT';
+        kill $signal, $$;
+    }
+};
 
 my $create = sub {
     my %OPT = @_;
@@ -34,16 +39,21 @@ my $create = sub {
 
     my $term = sub {
         my %opt = @_;
+        return 1 unless $h->pumpable;
 
 # kill_kill docs:
 #   Returns a 1 if the TERM was sufficient, or a 0 if KILL was required
-# finish docs (remapped for consistency):
+# finish docs:
 #   returns TRUE if all children returned 0 (and were not signaled and did  not coredump, ie ! $?), and FALSE otherwise
         eval {
-            $opt{force} and $h->pumpable
-              ? $h->kill_kill
-              : eval {$h->finish and 1}
-              // $h->kill_kill if $h->pumpable
+            $opt{force}
+              ? $h->kill_kill(grace => $OPT{kill_s})
+              : eval {$h->finish}
+              || (
+                $h->pumpable
+                ? $h->kill_kill(grace => $OPT{kill_s} / 2)
+                : 1
+              )
         }
     };
 
@@ -100,7 +110,7 @@ sub init {
     push @cmd, do {
         local $_ = ref(my $args_ref = pop @cmd);
         croak "defined args not a list or scalar"
-          unless /ARRAY|/;
+          unless /^(ARRAY|)$/;
         length
           ? @{$args_ref}
           : $args_ref // ()
@@ -116,8 +126,9 @@ sub init {
     $INSTANCE{$self} = $create->(
         cmd      => \@cmd,
         parser   => $parser,
-        block_ms => $user_cfg{grace_ms}{block} // 'inf',
-        start_ms => $user_cfg{grace_ms}{start},
+        block_ms => $user_cfg{grace_time}{block_ms} // 'inf',
+        start_ms => $user_cfg{grace_time}{start_ms},
+        kill_s   => $user_cfg{grace_time}{kill_s} || 5,
     );
 
     $self

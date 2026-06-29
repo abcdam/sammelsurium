@@ -1,7 +1,7 @@
 #
 # Boring internals
 #
-readonly __EXCODE_GENERAL=1
+readonly __EXCODE=1
 readonly __EXCODE_ALREADY_SOURCED=3
 readonly __EXCODE_UNSUPPORTED_LIB=5
 readonly __EXCODE_NOT_A_FILE=7
@@ -32,7 +32,7 @@ __posher_intern_error_printer() {
 
 
 __posher_intern_is_lib_in_runtime() {
-    retval=$__EXCODE_GENERAL
+    retval=$__EXCODE
     [ -n "$_POSHER_CTXT_STATE" ] || return $retval
 
     _posher_lib_in_runtime_old_ifs_state=${IFS+set}
