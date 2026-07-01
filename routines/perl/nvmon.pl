@@ -1,7 +1,8 @@
 #!/usr/bin/env perl
 use v5.36.0;
 
-use lib './lib';
+use FindBin;
+use lib "$FindBin::RealBin/lib";
 
 use CmdGazer;
 
