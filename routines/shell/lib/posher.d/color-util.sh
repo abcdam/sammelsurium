@@ -1,4 +1,3 @@
-load_posher core
 
 readonly __ANSI_ESCAPE_CHAR=$(printf '\033')
 
@@ -56,14 +55,13 @@ __hue_worker() {
           "${_posher_ansi_color}"   \
           "$1"                      \
           "${__ANSI_ESCAPE_CHAR}"   \
-      && _hue_worker_ec=$?          \
-      || _hue_worker_ec=$?
+      || _EX_hue_worker=$?
 
-  set --    "$_hue_worker_ec"     \
-    && unset  _hue_worker_ec      \
+  set --    ${_EX_hue_worker-0}
+  unset       _EX_hue_worker      \
               _posher_ansi_color  \
               _posher_ansi_style
-    return "$1"
+    return $1
 }
 
 # what:
@@ -104,5 +102,5 @@ ansi_stripper() {
       esac;
     done
     unset _posher_pref _posher_rest
-    stdoutln "$1"
+    line "$1"
 }

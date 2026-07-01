@@ -3,7 +3,7 @@
 
 
 
-if [ -t 0 ] && [ "$1" = "/bin/dash" ]; then
+if [ -t 0 ] && [ "$1" = /bin/dash ]; then
   parrot(){ printf '%*s' "$1" '' | tr ' ' "${2-\\\\}" ;}
   intro_width=40
   mid_lead='\\  Welcome back  '

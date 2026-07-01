@@ -10,7 +10,7 @@
 # http://gondor.apana.org.au/~herbert/dash
 # https://pubs.opengroup.org/onlinepubs/007904875/utilities/xcu_chap01.html#tag_01
 
-readonly _POSHER_LIB_WHITELIST='core color yap misc file proc env'
+readonly _POSHER_LIB_WHITELIST='color yap misc file proc env'
 readonly _POSHER_RUNTIME_D="/tmp/posher.d/$$"
 
 _POSHER_CTXT_STATE=""
@@ -18,21 +18,184 @@ readonly POSHER_LIB_DIR='/usr/local/lib/posher.d'
 
 readonly __POSHER_ERR_MSG_PREFIX="[\033[1;31mFATAL\033[0m]"
 
-abs_path() {
-  curr_path=${1:-}
-  is_param_set "$curr_path" 'strict' "" "abs_path(): requires non-null path param"
+stderr_sep()  { stdout_sep ${@+"$@"} >&2  ;}
+stdout_sep()  {
+    [ $# -gt 1 ] || return 0
+    _stdout_sep_ifs_state=${IFS+set}
+    _stdout_sep_ifs_value=${IFS-}
+    IFS=$1
 
-  while [ -L "$curr_path" ]; do
-      tmp_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
-      curr_path="$(ls -ld "$curr_path" | awk '{print $NF}')"
-      [ "${curr_path#/}" = "$curr_path" ] && curr_path="$tmp_dir/$curr_path"
-  done
-  target_dir="$(cd -P "$(dirname "$curr_path")" && pwd)"
-  printf '%s/%s' "$target_dir" "$(basename "$curr_path")"
-  unset curr_path target_dir tmp_dir
+    shift;
+    printf '%s' "$*" || _EX_stdout_sep=$?
+
+    [ "${_stdout_sep_ifs_state-}" = set ] \
+      && IFS="$_stdout_sep_ifs_value"     \
+      || unset IFS
+
+    set --  ${_EX_stdout_sep-0}
+    unset     _EX_stdout_sep              \
+              _lib_stdout_sep_ifs_state   \
+              _stdout_sep_ifs_value
+    return $1
+}
+
+
+stdout(){ stdout_sep  ' ' ${@+"$@"} ;}
+stderr(){ stderr_sep  ' ' ${@+"$@"} ;}
+
+line_sep()  { stdout_sep  ${@+"$@"}; printf '\n' ;}
+eline_sep() { line_sep    ${@+"$@"} >&2          ;}
+
+line()  { line_sep  ' ' ${@+"$@"} ;}
+eline() { eline_sep ' ' ${@+"$@"} ;}
+
+fmt_assertmsg() { stdout "(expected: $1, got: '${2:-UNDEF}')" ;}
+
+throw() {
+    _posher_msg=${1-NO_MSG_SUPPLIED}
+    _posher_retval=${2:-$__EXCODE}
+
+  [ -z "${NO_COLOR+x}" ] \
+    && set -- '\033[1;91mFATAL\033[0m' "${1-NO_MSG_SUPPLIED}" \
+    || set -- FATAL "${1-NO_MSG_SUPPLIED}"
+
+  printf '[%b] %s\n' "$@" || :
+
+  if _posher_sigfile=$(get_sigfile_p) 2>/dev/null; then
+     printf '%d' "$_posher_retval" > "$_posher_sigfile" || :
+  fi
+
+  exit $_posher_retval
 }
 
 is_cmd_available() { command -v "${1:-}" > /dev/null  ;}
+
+#
+# api:
+#   single argument (symlinks are resolved)
+#     $1: input path
+#   two arguments (symlinks are not resolved):
+#     $1: must be -s
+#     $2: input path
+#
+# what:
+#   canonicalizes input path. To keep it handy (e.g. precomputing
+#   not-yet-created files), existence checks are offloaded to the caller.
+#
+#
+#   the symlink resolver uses the following fallback strategy (first to last)
+#   1) realpath (gnu)
+#   2) readlink (gnu)
+#   3) readlink (bsd,         recursive)
+#   4) ls -ld   (posix 2001,  recursive)
+#
+#   fallback 3 & 4 have a recursion hard-cap of 32 invocations.
+#   recursion is executed in-place
+#
+#   if symlinks resolution is turned off, the following strategy applies:
+#   1) realpath         (gnu)
+#   2) pattern matching (posix 2001)
+#
+abs_path() {
+  if [ -z "${_posher_symlink_rslv+set}" ]; then
+    case $# in
+      1)
+        if is_cmd_available realpath; then
+          realpath -m "$@"
+          return $?
+        elif is_cmd_available readlink; then
+          if readlink -m / >/dev/null 2>&1; then
+            readlink -m "$@"
+            return $?
+          fi
+          _posher_symlink_rslv='set -- "$1" "$(readlink "$1")"'
+        else
+          _posher_symlink_rslv='set -- "$1" "$(ls -ld "$1")"; set -- "$1" "${2#*"$1 -> "}"'
+        fi
+        ;;
+      2)
+        [ "$1" = -s ] && shift || return $__EXCODE_CMD_MISUSE
+        if is_cmd_available realpath; then
+          realpath -s "$@"
+          return $?
+        fi
+      ;;
+      *) return $__EXCODE_CMD_MISUSE ;;
+    esac
+  fi
+
+  if [ -z "${_posher_abs_path_ifs_state+set}" ]; then
+    _posher_recursion_counter=0
+    _posher_recursion_depth=0
+    _posher_recursion_limit=32
+    _posher_abs_path_ifs_state=${IFS+set}
+    _posher_abs_path_ifs_value=${IFS-}
+    IFS='/'
+    case $- in *f*) : ;; *) _posher_restore_glob=1; set -f;; esac
+  fi
+
+  [ "${1#/}" != "$1" ]      \
+    && set -- "/"     "$1"  \
+    || set -- "$PWD"  "$1"
+
+  for _ITER in $2; do
+    case $_ITER in
+      ''|'.')                         ;;
+      '..') set -- "$(dirname "$1")"  ;;
+      *)
+            set -- "${1%/}/$_ITER"
+            [ -n "${_posher_symlink_rslv+set}" ] \
+              && [ -L "$1" ]                     \
+              || continue
+
+
+            eval "$_posher_symlink_rslv"
+
+            [ "${2#/}" = "$2" ] && set -- "$(dirname "$1")/$2" || shift
+
+            _posher_recursion_counter=$((_posher_recursion_counter + 1))
+            [ $_posher_recursion_counter -le $_posher_recursion_limit ] \
+              || break
+
+            _posher_recursion_depth=$((_posher_recursion_depth + 1))
+            abs_path "$1"
+            _posher_recursion_depth=$((_posher_recursion_depth - 1))
+            set -- "$_posher_abs_path_retval"
+
+            [ $_posher_recursion_counter -le $_posher_recursion_limit ] \
+              || break
+        ;;
+    esac
+  done
+
+  [ $_posher_recursion_depth -ne 0 ]  \
+    && _posher_abs_path_retval=$1     \
+    && return 0
+
+  [ "${_posher_abs_path_ifs_state-}" = set ] \
+    && IFS="$_posher_abs_path_ifs_value"     \
+    || unset IFS
+
+  [ ${_posher_restore_glob-0} -eq 9 ] || set +f
+
+  set -- "$1" $_posher_recursion_counter $_posher_recursion_limit
+
+  unset _posher_symlink_rslv          \
+        _posher_abs_path_ifs_state    \
+        _posher_abs_path_ifs_value    \
+        _posher_restore_glob          \
+        _posher_abs_path_retval       \
+        _posher_recursion_limit       \
+        _posher_recursion_depth       \
+        _posher_recursion_counter
+  if [ $2 -le $3 ]
+    then printf '%s\n' "$1" && return 0 || set -- $?
+    else throw "recursion limit breached ($3)" $__EXCODE
+  fi
+  return $1
+}
+
+
 
 # TODO docs
 is_param_set() {

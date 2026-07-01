@@ -1,22 +1,8 @@
-load_posher core
 
-__prepend_PATH_worker() {
-    _posher_sanitized=''
-    for _posher_p; do
-      case $_posher_p in
-        /*) _posher_p=${_posher_p%%"${_posher_p##*[!/]}"} ;;
-        *)  return $__EXCODE                              ;;
-      esac
-      # reject root path
-      [ -n "$_posher_p" ] && [ "$_posher_p" != '/' ] || return $__EXCODE
-      [ -d "$_posher_p" ] || return $__EXCODE_NOT_A_DIR
+is_root()     { [ $(id -u) -eq 0 ]  ;}
 
-      case ":$_posher_sanitized:\n:$PATH:" in
-        *":$_posher_p:"*) ;;
-        *) _posher_sanitized="${_posher_sanitized}${_posher_sanitized:+:}$_posher_p" ;;
-      esac
-    done
-}
+assert_root() { is_root || throw 'must be root' $__EXCODE_NO_PERM ;}
+
 
 # what:
 #   Variadic idempotent PATH prepender. Takes a list of absolute paths and prepends
@@ -39,20 +25,30 @@ __prepend_PATH_worker() {
 prepend_PATH() {
     [ -n "${1-}" ] || return $__EXCODE
 
-    __prepend_PATH_worker "$@" && _EX_prepend_PATH=$? || _EX_prepend_PATH=$?
+    __prepend_PATH_worker "$@" || _EX_prepend_PATH=$?
 
-    [ "$_EX_prepend_PATH" -eq 0 ]                           \
-      && [ -n "$_posher_sanitized" ]                        \
-      && export PATH="${_posher_sanitized}${PATH:+:$PATH}"  \
-      || :
+    set -- ${_EX_prepend_PATH-0} "${_posher_sanitized:-0}"
+    unset _EX_prepend_PATH _posher_sanitized
 
-    set --    "$_EX_prepend_PATH" \
-      && unset  _EX_prepend_PATH  \
-                _posher_p         \
-                _posher_sanitized
-    return "$1"
+    [ $1 -eq 0 ] && ! [ $2 -eq 0 ] || return $1
+    export PATH="$2${PATH:+:$PATH}"
 }
 
+__prepend_PATH_worker() {
+    _posher_sanitized=''
+    for _ITER; do
+      case $_ITER in
+        /*) _ITER=${_ITER%%"${_ITER##*[!/]}"} ;;
+        *)  return $__EXCODE                  ;;
+      esac
+      # reject root path
+      [ -n "$_ITER" ] && [ "$_ITER" != '/' ] || return $__EXCODE
+      [ -d "$_ITER" ] || return $__EXCODE_NOT_A_DIR
 
-is_root()     { [ "$(id --user)" -eq 0 ]  ;}
-assert_root() { is_root || posher yap throw 'must be root' || exit $? ;}
+      case ":$_posher_sanitized:\n:$PATH:" in
+        *":$_ITER:"*) ;;
+        *) _posher_sanitized="${_posher_sanitized}${_posher_sanitized:+:}$_ITER" ;;
+      esac
+    done
+    unset _ITER
+}
