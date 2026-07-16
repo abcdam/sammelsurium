@@ -176,7 +176,7 @@ abs_path() {
     && IFS="$_posher_abs_path_ifs_value"     \
     || unset IFS
 
-  [ ${_posher_restore_glob-0} -eq 9 ] || set +f
+  [ ${_posher_restore_glob-0} -eq 0 ] || set +f
 
   set -- "$1" $_posher_recursion_counter $_posher_recursion_limit
 
